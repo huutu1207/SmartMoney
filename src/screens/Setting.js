@@ -3,7 +3,14 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, List, Switch, Divider, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { auth } from '../services/firebaseConfig';
+import { signOut } from 'firebase/auth';
 
+const handleLogout = () => {
+    signOut(auth)
+        .then(() => console.log('User signed out!'))
+        .catch(error => console.log(error));
+};
 const Settings = () => {
     // Trạng thái bật/tắt thông báo
     const [isReminderEnabled, setIsReminderEnabled] = useState(true);
@@ -55,7 +62,7 @@ const Settings = () => {
                             title="Đăng xuất"
                             titleStyle={{ color: '#FF3B30' }}
                             left={props => <List.Icon {...props} icon="logout" color="#FF3B30" />}
-                            onPress={() => alert('Đăng xuất (Sẽ làm ở Tuần 2)')}
+                            onPress={() => handleLogout()}
                         />
                     </Surface>
                 </List.Section>

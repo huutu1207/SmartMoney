@@ -12,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 // Sử dụng MaterialCommunityIcons vì bộ icon tài chính rất đa dạng
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+//5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25 SHA1
 const { width } = Dimensions.get('window');
 
 const CATEGORY_CONFIG = {

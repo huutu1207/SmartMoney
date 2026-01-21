@@ -3,27 +3,39 @@
     "name": "SmartMoney",
     "slug": "SmartMoney",
     "version": "1.0.0",
+    "scheme": "smartmoney",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.huutu1.smartmoney",
+      "googleServicesFile": "./GoogleService-Info.plist" 
     },
     "android": {
+      "package": "com.huutu1.smartmoney",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true
+      }
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    }
+    "extra": {
+      "eas": {
+        "projectId": "92029a3b-d014-4114-9bef-b0255cb5858c"
+      }
+    },
+    "plugins": [
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.201189817902-9mo5uip3752nfc4lcq6jv26drrd5pq48.apps.googleusercontent.com"
+        }
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "expo-build-properties"
+    ]
   }
 }
