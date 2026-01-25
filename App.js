@@ -15,6 +15,7 @@ import Dashboard from './src/screens/Dashboard';
 import Settings from './src/screens/Setting';
 import Login from './src/screens/Login';
 import Register from './src/screens/Register';
+import AddTransactionScreen from './src/screens/AddTransactions';
 
 
 const Stack = createStackNavigator();
@@ -63,7 +64,10 @@ export default function App() {
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             {user ? (
               // Nếu ĐÃ đăng nhập: Vào thẳng Dashboard
+              <>
               <Stack.Screen name="MainApp" component={MainTabs} />
+              <Stack.Screen name="AddTransaction" component={AddTransactionScreen} />
+              </>
             ) : (
               <>
               <Stack.Screen name="Login" component={Login} />
