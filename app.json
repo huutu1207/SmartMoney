@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.huutu1.smartmoney",
-      "googleServicesFile": "./GoogleService-Info.plist" 
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "package": "com.huutu1.smartmoney",
@@ -35,7 +35,8 @@
       ],
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
-      "expo-build-properties"
+      "expo-build-properties",
+      "@react-native-community/datetimepicker"
     ]
   }
 }

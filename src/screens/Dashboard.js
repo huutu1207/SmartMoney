@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect} from 'react';
 import {
     View,
     Text,
@@ -6,14 +6,15 @@ import {
     ScrollView,
     TouchableOpacity,
     StatusBar,
-    Dimensions
+    Dimensions,
+    Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-// Sử dụng MaterialCommunityIcons vì bộ icon tài chính rất đa dạng
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db, auth } from '../services/firebaseConfig';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { deleteTransaction } from '../services/transactionService';
 //5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25 SHA1
 const { width } = Dimensions.get('window');
 
@@ -42,14 +43,32 @@ const Dashboard = ({ navigation }) => {
     const [income, setIncome] = useState(0);
     const [expense, setExpense] = useState(0);
 
-    // Hàm định dạng tiền tệ
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND'
         }).format(Math.abs(amount));
     };
-
+    const confirmDelete = (id) => {
+        Alert.alert(
+            "Xác nhận xóa",
+            "Bạn có chắc chắn muốn xóa giao dịch này không? Hành động này không thể hoàn tác.",
+            [
+                { text: "Hủy", style: "cancel" },
+                {
+                    text: "Xóa",
+                    style: "destructive",
+                    onPress: async () => {
+                        const success = await deleteTransaction(id);
+                        if (success) {
+                            // console dẻ kiem tra
+                            console.log("Xóa thành công");
+                        }
+                    }
+                }
+            ]
+        );
+    };
     // Lắng nghe dữ liệu thời gian thực từ Firestore
     useEffect(() => {
         const user = auth.currentUser;
@@ -69,7 +88,6 @@ const Dashboard = ({ navigation }) => {
 
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
-                // Chuyển đổi Firestore Timestamp sang định dạng ngày đọc được
                 const dateObj = data.date?.toDate() || new Date();
                 const displayDate = dateObj.toLocaleDateString('vi-VN') + ', ' + dateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
@@ -206,7 +224,10 @@ const Dashboard = ({ navigation }) => {
                             transactions.map((item) => {
                                 const category = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.default;
                                 return (
-                                    <TouchableOpacity key={item.id} style={styles.transactionItem}>
+                                    <TouchableOpacity key={item.id} style={styles.transactionItem} 
+                                    onPress={() => navigation.navigate('AddTransaction', { transaction: item })}
+                                    onLongPress={() => confirmDelete(item.id)}
+                                    delayLongPress={300}>
                                         <View style={[styles.itemIconBox, { backgroundColor: category.color + '15' }]}>
                                             <MaterialCommunityIcons name={category.icon} size={24} color={category.color} />
                                         </View>

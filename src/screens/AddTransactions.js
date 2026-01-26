@@ -6,13 +6,14 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { addTransaction } from '../services/transactionService';
+import { addTransaction, updateTransaction, deleteTransaction } from '../services/transactionService';
 
-const AddTransactionScreen = ({ navigation }) => {
-    const [amount, setAmount] = useState('');
-    const [type, setType] = useState('expense');
-    const [category, setCategory] = useState('Ăn uống');
-    const [note, setNote] = useState('');
+const AddTransactionScreen = ({ navigation, route }) => {
+    const editData = route.params?.transaction;
+    const [amount, setAmount] = useState(editData ? editData.amount.toString() : '');
+    const [type, setType] = useState(editData ? editData.type : 'expense');
+    const [category, setCategory] = useState(editData ? editData.category : 'Ăn uống');
+    const [note, setNote] = useState(editData ? editData.note : '');
     const [isAmountFocused, setIsAmountFocused] = useState(false);
 
     const categories = {
@@ -36,13 +37,21 @@ const AddTransactionScreen = ({ navigation }) => {
     };
 
     const handleSave = async () => {
-        if (!amount || amount === '0') {
-            Alert.alert("Lỗi", "Vui lòng nhập số tiền hợp lệ");
-            return;
+        if (!amount) return Alert.alert("Lỗi", "Vui lòng nhập số tiền");
+
+        const data = { amount: Number(amount), type, category, note };
+
+        let success;
+        if (editData) {
+            // Nếu là chế độ Sửa
+            success = await updateTransaction(editData.id, data);
+        } else {
+            // Nếu là chế độ Thêm mới
+            success = await addTransaction(amount, type, category, note);
         }
-        const success = await addTransaction(amount, type, category, note);
+
         if (success) {
-            Alert.alert("Thành công", "Giao dịch đã được lưu!");
+            Alert.alert("Thành công", editData ? "Đã cập nhật giao dịch!" : "Đã lưu giao dịch!");
             navigation.goBack();
         }
     };
@@ -60,17 +69,17 @@ const AddTransactionScreen = ({ navigation }) => {
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity 
+                <TouchableOpacity
                     style={styles.backButton}
                     onPress={() => navigation.goBack()}
                 >
                     <MaterialCommunityIcons name="arrow-left" size={24} color="#1F2937" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Giao dịch mới</Text>
+                <Text>{editData ? "Chỉnh sửa giao dịch" : "Thêm giao dịch"}</Text>
                 <View style={styles.placeholder} />
             </View>
 
-            <ScrollView 
+            <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
             >
@@ -82,19 +91,19 @@ const AddTransactionScreen = ({ navigation }) => {
                 >
                     <View style={styles.amountCardDecor1} />
                     <View style={styles.amountCardDecor2} />
-                    
+
                     <View style={styles.amountCardContent}>
                         <View style={styles.typeIconWrapper}>
-                            <MaterialCommunityIcons 
-                                name={type === 'expense' ? 'arrow-up-circle' : 'arrow-down-circle'} 
-                                size={32} 
-                                color="#FFFFFF" 
+                            <MaterialCommunityIcons
+                                name={type === 'expense' ? 'arrow-up-circle' : 'arrow-down-circle'}
+                                size={32}
+                                color="#FFFFFF"
                             />
                         </View>
                         <Text style={styles.amountLabel}>
                             {type === 'expense' ? 'Chi tiêu' : 'Thu nhập'}
                         </Text>
-                        
+
                         <View style={styles.amountInputWrapper}>
                             <Text style={styles.currencySymbol}>₫</Text>
                             <TextInput
@@ -125,10 +134,10 @@ const AddTransactionScreen = ({ navigation }) => {
                             colors={type === 'expense' ? ['#FF6B6B', '#EE5A6F'] : ['#F1F5F9', '#F1F5F9']}
                             style={styles.typeGradient}
                         >
-                            <MaterialCommunityIcons 
-                                name="arrow-up-circle-outline" 
-                                size={22} 
-                                color={type === 'expense' ? '#FFFFFF' : '#64748B'} 
+                            <MaterialCommunityIcons
+                                name="arrow-up-circle-outline"
+                                size={22}
+                                color={type === 'expense' ? '#FFFFFF' : '#64748B'}
                             />
                             <Text style={[styles.typeText, type === 'expense' && styles.typeTextActive]}>
                                 Chi tiêu
@@ -148,10 +157,10 @@ const AddTransactionScreen = ({ navigation }) => {
                             colors={type === 'income' ? ['#51CF66', '#47C95E'] : ['#F1F5F9', '#F1F5F9']}
                             style={styles.typeGradient}
                         >
-                            <MaterialCommunityIcons 
-                                name="arrow-down-circle-outline" 
-                                size={22} 
-                                color={type === 'income' ? '#FFFFFF' : '#64748B'} 
+                            <MaterialCommunityIcons
+                                name="arrow-down-circle-outline"
+                                size={22}
+                                color={type === 'income' ? '#FFFFFF' : '#64748B'}
                             />
                             <Text style={[styles.typeText, type === 'income' && styles.typeTextActive]}>
                                 Thu nhập
@@ -229,12 +238,12 @@ const AddTransactionScreen = ({ navigation }) => {
                 </View>
 
                 {/* Save Button */}
-                <TouchableOpacity 
-                    activeOpacity={0.85} 
+                <TouchableOpacity
+                    activeOpacity={0.85}
                     style={styles.saveButton}
                     onPress={handleSave}
                 >
-                    <LinearGradient 
+                    <LinearGradient
                         colors={['#667EEA', '#764BA2']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
@@ -252,9 +261,9 @@ const AddTransactionScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { 
-        flex: 1, 
-        backgroundColor: '#FAFBFF' 
+    container: {
+        flex: 1,
+        backgroundColor: '#FAFBFF'
     },
     header: {
         flexDirection: 'row',
@@ -282,7 +291,7 @@ const styles = StyleSheet.create({
     placeholder: {
         width: 40,
     },
-    scrollContent: { 
+    scrollContent: {
         padding: 20,
         paddingTop: 24,
     },
