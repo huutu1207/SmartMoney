@@ -15,6 +15,8 @@ import Dashboard from './src/screens/Dashboard';
 import Settings from './src/screens/Setting';
 import Login from './src/screens/Login';
 import Register from './src/screens/Register';
+import UserProfileScreen from './src/screens/UserProfile';
+
 import AddTransactionScreen from './src/screens/AddTransactions';
 
 
@@ -67,6 +69,8 @@ export default function App() {
               <>
               <Stack.Screen name="MainApp" component={MainTabs} />
               <Stack.Screen name="AddTransaction" component={AddTransactionScreen} />
+              <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+
               </>
             ) : (
               <>

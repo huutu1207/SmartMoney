@@ -1,20 +1,78 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, List, Switch, Divider, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { auth } from '../services/firebaseConfig';
+import { auth, db } from '../services/firebaseConfig';
 import { signOut } from 'firebase/auth';
+import { doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Platform } from 'react-native';
 const handleLogout = () => {
     signOut(auth)
         .then(() => console.log('User signed out!'))
         .catch(error => console.log(error));
 };
-const Settings = () => {
+const Settings = ({ navigation }) => {
     // Trạng thái bật/tắt thông báo
+    const [reminderTime, setReminderTime] = useState('20:00');
+    const [currency, setCurrency] = useState('VND'); // Thêm đơn vị tiền tệ theo Tuần 3
+    const [loading, setLoading] = useState(true);
+    const [showPicker, setShowPicker] = useState(false);
     const [isReminderEnabled, setIsReminderEnabled] = useState(true);
+    const user = auth.currentUser;
 
+    const onTimeChange = (event, selectedDate) => {
+        setShowPicker(false);
+
+        if (selectedDate) {
+            setDate(selectedDate);
+
+            const hours = selectedDate.getHours().toString().padStart(2, '0');
+            const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+            const timeString = `${hours}:${minutes}`;
+
+            setReminderTime(timeString);
+            updateSetting('reminderTime', timeString);
+        }
+    };
+    useEffect(() => {
+        const fetchSettings = async () => {
+            if (!user) return;
+            try {
+                const docRef = doc(db, "users", user.uid);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    // Nếu đã có cấu hình trong DB thì set vào State
+                    if (data.isReminderEnabled !== undefined) setIsReminderEnabled(data.isReminderEnabled);
+                    if (data.reminderTime) setReminderTime(data.reminderTime);
+                    if (data.currency) setCurrency(data.currency);
+                }
+            } catch (error) {
+                console.error("Lỗi tải cấu hình:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchSettings();
+    }, []);
+
+    const updateSetting = async (key, value) => {
+        try {
+            const userRef = doc(db, "users", user.uid);
+            await updateDoc(userRef, {
+                [key]: value
+            });
+            console.log(`Đã cập nhật ${key} thành công`);
+        } catch (error) {
+            // Nếu document chưa tồn tại, dùng setDoc
+            console.log("Cập nhật thất bại, đang thử khởi tạo lại...");
+            await setDoc(doc(db, "users", user.uid), { [key]: value }, { merge: true });
+        }
+    };
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.header}>
@@ -32,18 +90,27 @@ const Settings = () => {
                             right={() => (
                                 <Switch
                                     value={isReminderEnabled}
-                                    onValueChange={() => setIsReminderEnabled(!isReminderEnabled)}
+                                    onValueChange={(value) => {
+                                        setIsReminderEnabled(value);
+                                        updateSetting('isReminderEnabled', value);
+                                    }}
                                     color="#5856D6"
                                 />
                             )}
                         />
+
                         <Divider />
                         <List.Item
                             title="Thời gian nhắc"
-                            description="20:00 mỗi ngày"
-                            left={props => <List.Icon {...props} icon="clock-outline" color="#FF9500" />}
-                            right={props => <List.Icon {...props} icon="chevron-right" />}
-                            onPress={() => alert('Chọn giờ nhắc (Sẽ làm ở Epic 4)')}
+                            description={reminderTime + " mỗi ngày"}
+                            // ... các props khác
+                            onPress={() => {
+                                // Ở đây bạn có thể dùng DateTimePicker
+                                // Tạm thời ví dụ đổi sang 21:00
+                                const newTime = "21:00";
+                                setReminderTime(newTime);
+                                updateSetting('reminderTime', newTime);
+                            }}
                             disabled={!isReminderEnabled}
                         />
                     </Surface>
@@ -56,7 +123,21 @@ const Settings = () => {
                             title="Thông tin cá nhân"
                             left={props => <List.Icon {...props} icon="account-outline" />}
                             right={props => <List.Icon {...props} icon="chevron-right" />}
+                            onPress={() => { navigation.navigate('UserProfile') }}
                         />
+                        <List.Item
+                            title="Đơn vị tiền tệ"
+                            description={currency}
+                            left={props => <List.Icon {...props} icon="currency-usd" color="#34C759" />}
+                            onPress={() => {
+                                // Ví dụ: Đổi nhanh hoặc mở Menu chọn
+                                const newCurrency = currency === 'VND' ? 'USD' : 'VND';
+                                setCurrency(newCurrency);
+                                updateSetting('currency', newCurrency);
+                            }}
+                        />
+
+
                         <Divider />
                         <List.Item
                             title="Đăng xuất"
