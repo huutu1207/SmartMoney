@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect} from 'react';
 import {
     View,
     Text,
@@ -6,13 +6,16 @@ import {
     ScrollView,
     TouchableOpacity,
     StatusBar,
-    Dimensions
+    Dimensions,
+    Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-// Sử dụng MaterialCommunityIcons vì bộ icon tài chính rất đa dạng
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { db, auth } from '../services/firebaseConfig';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { deleteTransaction } from '../services/transactionService';
+//5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25 SHA1
 const { width } = Dimensions.get('window');
 
 const CATEGORY_CONFIG = {
@@ -31,18 +34,86 @@ const mockTransactions = [
     { id: 't5', title: 'Mua sắm siêu thị', date: '23/08, 10:15', amount: -1200000, type: 'expense', category: 'shopping' },
 ];
 
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('vi-VN', {
-        style: 'currency',
-        currency: 'VND'
-    }).format(Math.abs(amount));
-};
 
-const Dashboard = () => {
+
+const Dashboard = ({ navigation }) => {
     const [selectedPeriod, setSelectedPeriod] = useState('month');
+    const [transactions, setTransactions] = useState([]);
+    const [totalBalance, setTotalBalance] = useState(0);
+    const [income, setIncome] = useState(0);
+    const [expense, setExpense] = useState(0);
+
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND'
+        }).format(Math.abs(amount));
+    };
+    const confirmDelete = (id) => {
+        Alert.alert(
+            "Xác nhận xóa",
+            "Bạn có chắc chắn muốn xóa giao dịch này không? Hành động này không thể hoàn tác.",
+            [
+                { text: "Hủy", style: "cancel" },
+                {
+                    text: "Xóa",
+                    style: "destructive",
+                    onPress: async () => {
+                        const success = await deleteTransaction(id);
+                        if (success) {
+                            // console dẻ kiem tra
+                            console.log("Xóa thành công");
+                        }
+                    }
+                }
+            ]
+        );
+    };
+    // Lắng nghe dữ liệu thời gian thực từ Firestore
+    useEffect(() => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const userId = user.uid;
+        const q = query(
+            collection(db, "transactions"),
+            where("userId", "==", userId),
+            orderBy("date", "desc")
+        );
+
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            let transList = [];
+            let tempIncome = 0;
+            let tempExpense = 0;
+
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                const dateObj = data.date?.toDate() || new Date();
+                const displayDate = dateObj.toLocaleDateString('vi-VN') + ', ' + dateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+                transList.push({
+                    id: doc.id,
+                    ...data,
+                    formattedDate: displayDate
+                });
+
+                if (data.type === 'income') tempIncome += data.amount;
+                else tempExpense += data.amount;
+            });
+
+            setTransactions(transList);
+            setIncome(tempIncome);
+            setExpense(tempExpense);
+            setTotalBalance(tempIncome - tempExpense);
+        }, (error) => {
+            console.error("Firestore Error:", error);
+        });
+
+        return () => unsubscribe();
+    }, []);
 
     return (
-        
+
         <SafeAreaView style={styles.container} edges={['top']}>
             <StatusBar barStyle="dark-content" />
 
@@ -77,7 +148,7 @@ const Dashboard = () => {
                     <View style={styles.balanceHeader}>
                         <View>
                             <Text style={styles.balanceLabel}>Tổng số dư</Text>
-                            <Text style={styles.balanceValue}>{formatCurrency(13500000)}</Text>
+                            <Text style={styles.balanceValue}>{formatCurrency(totalBalance)}</Text>
                         </View>
                         <View style={styles.periodSelector}>
                             {['week', 'month', 'year'].map((p) => (
@@ -101,7 +172,7 @@ const Dashboard = () => {
                             </View>
                             <View>
                                 <Text style={styles.statLabel}>Thu nhập</Text>
-                                <Text style={styles.statAmount}>{formatCurrency(15000000)}</Text>
+                                <Text style={styles.statAmount}>{formatCurrency(income)}</Text>
                             </View>
                         </View>
                         <View style={styles.statBox}>
@@ -110,7 +181,7 @@ const Dashboard = () => {
                             </View>
                             <View>
                                 <Text style={styles.statLabel}>Chi tiêu</Text>
-                                <Text style={styles.statAmount}>{formatCurrency(1500000)}</Text>
+                                <Text style={styles.statAmount}>{formatCurrency(expense)}</Text>
                             </View>
                         </View>
                     </View>
@@ -128,7 +199,9 @@ const Dashboard = () => {
                         </View>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.addBtn} activeOpacity={0.8}>
+                    <TouchableOpacity style={styles.addBtn} activeOpacity={0.8}
+                        onPress={() => navigation.navigate('AddTransaction')}
+                    >
                         <LinearGradient colors={['#A855F7', '#EC4899']} style={styles.actionIconSmall}>
                             <MaterialCommunityIcons name="plus" size={28} color="white" />
                         </LinearGradient>
@@ -136,7 +209,6 @@ const Dashboard = () => {
                     </TouchableOpacity>
                 </View>
 
-                {/* Recent Transactions */}
                 <View style={styles.listContainer}>
                     <View style={styles.listHeader}>
                         <Text style={styles.listTitle}>Giao dịch gần đây</Text>
@@ -146,25 +218,30 @@ const Dashboard = () => {
                     </View>
 
                     <View style={styles.transactionList}>
-                        {mockTransactions.map((item) => {
-                            const category = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.default;
-                            const isIncome = item.type === 'income';
-
-                            return (
-                                <TouchableOpacity key={item.id} style={styles.transactionItem}>
-                                    <View style={[styles.itemIconBox, { backgroundColor: category.color + '15' }]}>
-                                        <MaterialCommunityIcons name={category.icon} size={24} color={category.color} />
-                                    </View>
-                                    <View style={styles.itemInfo}>
-                                        <Text style={styles.itemTitle}>{item.title}</Text>
-                                        <Text style={styles.itemDate}>{item.date}</Text>
-                                    </View>
-                                    <Text style={[styles.itemAmount, { color: isIncome ? '#059669' : '#111827' }]}>
-                                        {isIncome ? '+' : '-'}{formatCurrency(item.amount)}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
+                        {transactions.length === 0 ? (
+                            <Text style={{ textAlign: 'center', padding: 20, color: '#94A3B8' }}>Chưa có giao dịch nào</Text>
+                        ) : (
+                            transactions.map((item) => {
+                                const category = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.default;
+                                return (
+                                    <TouchableOpacity key={item.id} style={styles.transactionItem} 
+                                    onPress={() => navigation.navigate('AddTransaction', { transaction: item })}
+                                    onLongPress={() => confirmDelete(item.id)}
+                                    delayLongPress={300}>
+                                        <View style={[styles.itemIconBox, { backgroundColor: category.color + '15' }]}>
+                                            <MaterialCommunityIcons name={category.icon} size={24} color={category.color} />
+                                        </View>
+                                        <View style={styles.itemInfo}>
+                                            <Text style={styles.itemTitle}>{item.note || category.label}</Text>
+                                            <Text style={styles.itemDate}>{item.formattedDate}</Text>
+                                        </View>
+                                        <Text style={[styles.itemAmount, { color: item.type === 'income' ? '#059669' : '#111827' }]}>
+                                            {item.type === 'income' ? '+' : '-'}{formatCurrency(item.amount)}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })
+                        )}
                     </View>
                 </View>
 
