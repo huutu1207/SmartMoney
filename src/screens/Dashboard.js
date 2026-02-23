@@ -1,4 +1,4 @@
-import React, { useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -15,16 +15,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { db, auth } from '../services/firebaseConfig';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { deleteTransaction } from '../services/transactionService';
+//import component
+import SummaryCard from '../components/Dashboard/SummaryCard';
+import TransactionItem from '../components/Dashboard/TransactionItem';
+import { CATEGORY_CONFIG } from '../constants/categories';
 //5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25 SHA1
 const { width } = Dimensions.get('window');
 
-const CATEGORY_CONFIG = {
-    food: { icon: 'silverware-fork-knife', color: '#FF9500', label: 'Ăn uống' },
-    salary: { icon: 'cash-multiple', color: '#34C759', label: 'Lương' },
-    transport: { icon: 'gas-station', color: '#007AFF', label: 'Di chuyển' },
-    shopping: { icon: 'cart', color: '#FF2D55', label: 'Mua sắm' },
-    default: { icon: 'help-circle', color: '#8E8E93', label: 'Khác' }
-};
+
 
 const mockTransactions = [
     { id: 't1', title: 'Cơm trưa văn phòng', date: 'Hôm nay, 12:30', amount: -55000, type: 'expense', category: 'food' },
@@ -139,7 +137,7 @@ const Dashboard = ({ navigation }) => {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
 
                 {/* Balance Card với Linear Gradient */}
-                <LinearGradient
+                {/* <LinearGradient
                     colors={['#3B82F6', '#4F46E5', '#7C3AED']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
@@ -185,7 +183,14 @@ const Dashboard = ({ navigation }) => {
                             </View>
                         </View>
                     </View>
-                </LinearGradient>
+                </LinearGradient> */}
+                <SummaryCard totalBalance={totalBalance}
+                    income={income}
+                    expense={expense}
+                    selectedPeriod={selectedPeriod}
+                    onPeriodChange={setSelectedPeriod}
+                    formatCurrency={formatCurrency} />
+
 
                 {/* Quick Actions */}
                 <View style={styles.actionRow}>
@@ -219,28 +224,19 @@ const Dashboard = ({ navigation }) => {
 
                     <View style={styles.transactionList}>
                         {transactions.length === 0 ? (
-                            <Text style={{ textAlign: 'center', padding: 20, color: '#94A3B8' }}>Chưa có giao dịch nào</Text>
+                            <Text style={{ textAlign: 'center', padding: 20, color: '#94A3B8' }}>
+                                Chưa có giao dịch nào
+                            </Text>
                         ) : (
-                            transactions.map((item) => {
-                                const category = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.default;
-                                return (
-                                    <TouchableOpacity key={item.id} style={styles.transactionItem} 
+                            transactions.map((item) => (
+                                <TransactionItem
+                                    key={item.id}
+                                    item={item}
+                                    formatCurrency={formatCurrency}
                                     onPress={() => navigation.navigate('AddTransaction', { transaction: item })}
                                     onLongPress={() => confirmDelete(item.id)}
-                                    delayLongPress={300}>
-                                        <View style={[styles.itemIconBox, { backgroundColor: category.color + '15' }]}>
-                                            <MaterialCommunityIcons name={category.icon} size={24} color={category.color} />
-                                        </View>
-                                        <View style={styles.itemInfo}>
-                                            <Text style={styles.itemTitle}>{item.note || category.label}</Text>
-                                            <Text style={styles.itemDate}>{item.formattedDate}</Text>
-                                        </View>
-                                        <Text style={[styles.itemAmount, { color: item.type === 'income' ? '#059669' : '#111827' }]}>
-                                            {item.type === 'income' ? '+' : '-'}{formatCurrency(item.amount)}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })
+                                />
+                            ))
                         )}
                     </View>
                 </View>
@@ -269,23 +265,23 @@ const styles = StyleSheet.create({
 
     scrollBody: { padding: 20 },
 
-    balanceCard: { borderRadius: 24, padding: 20, elevation: 8, shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20 },
-    balanceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 25 },
-    balanceLabel: { color: '#E0E7FF', fontSize: 14, fontWeight: '500' },
-    balanceValue: { color: 'white', fontSize: 30, fontWeight: 'bold', marginTop: 4 },
+    // balanceCard: { borderRadius: 24, padding: 20, elevation: 8, shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20 },
+    // balanceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 25 },
+    // balanceLabel: { color: '#E0E7FF', fontSize: 14, fontWeight: '500' },
+    // balanceValue: { color: 'white', fontSize: 30, fontWeight: 'bold', marginTop: 4 },
 
-    periodSelector: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: 3 },
-    periodTab: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-    periodTabActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
-    periodText: { color: '#E0E7FF', fontSize: 12 },
-    periodTextActive: { color: 'white', fontWeight: 'bold' },
+    // periodSelector: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: 3 },
+    // periodTab: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+    // periodTabActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
+    // periodText: { color: '#E0E7FF', fontSize: 12 },
+    // periodTextActive: { color: 'white', fontWeight: 'bold' },
 
-    statsRow: { flexDirection: 'row', gap: 12 },
-    statBox: { flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    statIconBadgeGreen: { width: 30, height: 30, backgroundColor: 'rgba(74, 222, 128, 0.2)', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-    statIconBadgeRed: { width: 30, height: 30, backgroundColor: 'rgba(248, 113, 113, 0.2)', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-    statLabel: { color: '#E0E7FF', fontSize: 11 },
-    statAmount: { color: 'white', fontSize: 15, fontWeight: 'bold' },
+    // statsRow: { flexDirection: 'row', gap: 12 },
+    // statBox: { flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    // statIconBadgeGreen: { width: 30, height: 30, backgroundColor: 'rgba(74, 222, 128, 0.2)', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+    // statIconBadgeRed: { width: 30, height: 30, backgroundColor: 'rgba(248, 113, 113, 0.2)', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+    // statLabel: { color: '#E0E7FF', fontSize: 11 },
+    // statAmount: { color: 'white', fontSize: 15, fontWeight: 'bold' },
 
     actionRow: { flexDirection: 'row', gap: 12, marginTop: 25 },
     scanBtn: { flex: 2, backgroundColor: 'white', borderRadius: 20, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12, borderWeight: 1, borderColor: '#F1F5F9', elevation: 2 },
@@ -303,13 +299,13 @@ const styles = StyleSheet.create({
     listTitle: { fontSize: 19, fontWeight: 'bold', color: '#1E293B' },
     seeAllText: { color: '#3B82F6', fontSize: 14, fontWeight: '600' },
 
-    transactionList: { backgroundColor: 'white', borderRadius: 24, padding: 8, elevation: 1 },
-    transactionItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16 },
-    itemIconBox: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-    itemInfo: { flex: 1, marginLeft: 15 },
-    itemTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
-    itemDate: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
-    itemAmount: { fontSize: 16, fontWeight: 'bold' }
+    // transactionList: { backgroundColor: 'white', borderRadius: 24, padding: 8, elevation: 1 },
+    // transactionItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16 },
+    // itemIconBox: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+    // itemInfo: { flex: 1, marginLeft: 15 },
+    // itemTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
+    // itemDate: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
+    // itemAmount: { fontSize: 16, fontWeight: 'bold' }
 });
 
 export default Dashboard;
