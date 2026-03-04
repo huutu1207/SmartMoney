@@ -12,7 +12,12 @@ const SummaryCard = ({ totalBalance, income, expense, selectedPeriod, onPeriodCh
             <View style={styles.balanceHeader}>
                 <View>
                     <Text style={styles.balanceLabel}>Tổng số dư</Text>
-                    <Text style={styles.balanceValue}>{formatCurrency(totalBalance)}</Text>
+                    <Text style={[
+                        styles.balanceValue,
+                        { color: totalBalance < 0 ? '#FF3B30' : '#FFFFFF' } // Đỏ nếu âm, Trắng nếu dương
+                    ]}>
+                        {formatCurrency(totalBalance)}
+                    </Text>
                 </View>
                 <View style={styles.periodSelector}>
                     {['week', 'month', 'year'].map((p) => (
@@ -54,7 +59,7 @@ const SummaryCard = ({ totalBalance, income, expense, selectedPeriod, onPeriodCh
         </LinearGradient>
     );
 };
-const styles = StyleSheet.create ({
+const styles = StyleSheet.create({
     balanceCard: { borderRadius: 24, padding: 20, elevation: 8, shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20 },
     balanceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 25 },
     balanceLabel: { color: '#E0E7FF', fontSize: 14, fontWeight: '500' },

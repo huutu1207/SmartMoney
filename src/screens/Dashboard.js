@@ -22,17 +22,41 @@ import { CATEGORY_CONFIG } from '../constants/categories';
 //5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25 SHA1
 const { width } = Dimensions.get('window');
 
+const getPeriodRange = (period) => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const currentDate = now.getDate();
 
+    switch (period) {
+        case 'week':
+            // JS: CN = 0, T2 = 1, ..., T7 = 6
+            const day = now.getDay();
+            // Tính khoảng cách đến Thứ 2 (nếu là CN (0) thì lùi 6 ngày, còn lại lùi day - 1)
+            const diffToMonday = currentDate - (day === 0 ? 6 : day - 1);
+            const monday = new Date(now.setDate(diffToMonday));
+            monday.setHours(0, 0, 0, 0);
 
-const mockTransactions = [
-    { id: 't1', title: 'Cơm trưa văn phòng', date: 'Hôm nay, 12:30', amount: -55000, type: 'expense', category: 'food' },
-    { id: 't2', title: 'Lương tháng 8', date: 'Hôm qua, 09:00', amount: 15000000, type: 'income', category: 'salary' },
-    { id: 't3', title: 'Đổ xăng xe máy', date: '25/08, 17:45', amount: -80000, type: 'expense', category: 'transport' },
-    { id: 't4', title: 'Cafe với bạn', date: '24/08, 20:00', amount: -65000, type: 'expense', category: 'food' },
-    { id: 't5', title: 'Mua sắm siêu thị', date: '23/08, 10:15', amount: -1200000, type: 'expense', category: 'shopping' },
-];
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            sunday.setHours(23, 59, 59, 999);
 
+            return { start: monday, end: sunday };
 
+        case 'month':
+            const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+            const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
+            return { start: firstDayOfMonth, end: lastDayOfMonth };
+
+        case 'year':
+            const firstDayOfYear = new Date(currentYear, 0, 1);
+            const lastDayOfYear = new Date(currentYear, 11, 31, 23, 59, 59, 999);
+            return { start: firstDayOfYear, end: lastDayOfYear };
+
+        default:
+            return { start: null, end: null };
+    }
+};
 
 const Dashboard = ({ navigation }) => {
     const [selectedPeriod, setSelectedPeriod] = useState('month');
@@ -42,10 +66,12 @@ const Dashboard = ({ navigation }) => {
     const [expense, setExpense] = useState(0);
 
     const formatCurrency = (amount) => {
+        const safeAmount = Number(amount) || 0
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
-            currency: 'VND'
-        }).format(Math.abs(amount));
+            currency: 'VND',
+            signDisplay: 'auto'
+        }).format(safeAmount);
     };
     const confirmDelete = (id) => {
         Alert.alert(
@@ -73,42 +99,48 @@ const Dashboard = ({ navigation }) => {
         if (!user) return;
 
         const userId = user.uid;
-        const q = query(
+        const { start, end } = getPeriodRange(selectedPeriod);
+
+        // Xây dựng Query với giới hạn 2 đầu thời gian
+        let q = query(
             collection(db, "transactions"),
-            where("userId", "==", userId),
+            where("userId", "==", user.uid),
+            where("date", ">=", start),
+            where("date", "<=", end),
             orderBy("date", "desc")
         );
 
+        
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            let transList = [];
             let tempIncome = 0;
             let tempExpense = 0;
 
-            querySnapshot.forEach((doc) => {
+            const transList = querySnapshot.docs.map(doc => {
                 const data = doc.data();
-                const dateObj = data.date?.toDate() || new Date();
-                const displayDate = dateObj.toLocaleDateString('vi-VN') + ', ' + dateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
-                transList.push({
-                    id: doc.id,
-                    ...data,
-                    formattedDate: displayDate
-                });
+                const dateObj = data.date?.toDate() || new Date();
+
+                const displayDate = dateObj.toLocaleDateString('vi-VN') +
+                    ', ' +
+                    dateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
                 if (data.type === 'income') tempIncome += data.amount;
                 else tempExpense += data.amount;
+
+                return {
+                    id: doc.id,
+                    ...data,
+                    formattedDate: displayDate // Cần cái này để TransactionItem hiển thị
+                };
             });
 
             setTransactions(transList);
             setIncome(tempIncome);
             setExpense(tempExpense);
             setTotalBalance(tempIncome - tempExpense);
-        }, (error) => {
-            console.error("Firestore Error:", error);
         });
-
         return () => unsubscribe();
-    }, []);
+    }, [selectedPeriod]);
 
     return (
 
@@ -136,54 +168,6 @@ const Dashboard = ({ navigation }) => {
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
 
-                {/* Balance Card với Linear Gradient */}
-                {/* <LinearGradient
-                    colors={['#3B82F6', '#4F46E5', '#7C3AED']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.balanceCard}
-                >
-                    <View style={styles.balanceHeader}>
-                        <View>
-                            <Text style={styles.balanceLabel}>Tổng số dư</Text>
-                            <Text style={styles.balanceValue}>{formatCurrency(totalBalance)}</Text>
-                        </View>
-                        <View style={styles.periodSelector}>
-                            {['week', 'month', 'year'].map((p) => (
-                                <TouchableOpacity
-                                    key={p}
-                                    onPress={() => setSelectedPeriod(p)}
-                                    style={[styles.periodTab, selectedPeriod === p && styles.periodTabActive]}
-                                >
-                                    <Text style={[styles.periodText, selectedPeriod === p && styles.periodTextActive]}>
-                                        {p === 'week' ? 'Tuần' : p === 'month' ? 'Tháng' : 'Năm'}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </View>
-
-                    <View style={styles.statsRow}>
-                        <View style={styles.statBox}>
-                            <View style={styles.statIconBadgeGreen}>
-                                <MaterialCommunityIcons name="arrow-down-left" size={16} color="#86EFAC" />
-                            </View>
-                            <View>
-                                <Text style={styles.statLabel}>Thu nhập</Text>
-                                <Text style={styles.statAmount}>{formatCurrency(income)}</Text>
-                            </View>
-                        </View>
-                        <View style={styles.statBox}>
-                            <View style={styles.statIconBadgeRed}>
-                                <MaterialCommunityIcons name="arrow-up-right" size={16} color="#FCA5A5" />
-                            </View>
-                            <View>
-                                <Text style={styles.statLabel}>Chi tiêu</Text>
-                                <Text style={styles.statAmount}>{formatCurrency(expense)}</Text>
-                            </View>
-                        </View>
-                    </View>
-                </LinearGradient> */}
                 <SummaryCard totalBalance={totalBalance}
                     income={income}
                     expense={expense}
@@ -265,23 +249,7 @@ const styles = StyleSheet.create({
 
     scrollBody: { padding: 20 },
 
-    // balanceCard: { borderRadius: 24, padding: 20, elevation: 8, shadowColor: '#4F46E5', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20 },
-    // balanceHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 25 },
-    // balanceLabel: { color: '#E0E7FF', fontSize: 14, fontWeight: '500' },
-    // balanceValue: { color: 'white', fontSize: 30, fontWeight: 'bold', marginTop: 4 },
 
-    // periodSelector: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: 3 },
-    // periodTab: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-    // periodTabActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
-    // periodText: { color: '#E0E7FF', fontSize: 12 },
-    // periodTextActive: { color: 'white', fontWeight: 'bold' },
-
-    // statsRow: { flexDirection: 'row', gap: 12 },
-    // statBox: { flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    // statIconBadgeGreen: { width: 30, height: 30, backgroundColor: 'rgba(74, 222, 128, 0.2)', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-    // statIconBadgeRed: { width: 30, height: 30, backgroundColor: 'rgba(248, 113, 113, 0.2)', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-    // statLabel: { color: '#E0E7FF', fontSize: 11 },
-    // statAmount: { color: 'white', fontSize: 15, fontWeight: 'bold' },
 
     actionRow: { flexDirection: 'row', gap: 12, marginTop: 25 },
     scanBtn: { flex: 2, backgroundColor: 'white', borderRadius: 20, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12, borderWeight: 1, borderColor: '#F1F5F9', elevation: 2 },
@@ -299,13 +267,7 @@ const styles = StyleSheet.create({
     listTitle: { fontSize: 19, fontWeight: 'bold', color: '#1E293B' },
     seeAllText: { color: '#3B82F6', fontSize: 14, fontWeight: '600' },
 
-    // transactionList: { backgroundColor: 'white', borderRadius: 24, padding: 8, elevation: 1 },
-    // transactionItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16 },
-    // itemIconBox: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-    // itemInfo: { flex: 1, marginLeft: 15 },
-    // itemTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
-    // itemDate: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
-    // itemAmount: { fontSize: 16, fontWeight: 'bold' }
+
 });
 
 export default Dashboard;
