@@ -18,7 +18,7 @@ import Register from './src/screens/Register';
 import UserProfileScreen from './src/screens/UserProfile';
 
 import AddTransactionScreen from './src/screens/AddTransactions';
-
+import AddCategories from './src/screens/AddCategories';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -70,6 +70,8 @@ export default function App() {
               <Stack.Screen name="MainApp" component={MainTabs} />
               <Stack.Screen name="AddTransaction" component={AddTransactionScreen} />
               <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+              <Stack.Screen name="AddCategories" component={AddCategories} />
+              
 
               </>
             ) : (

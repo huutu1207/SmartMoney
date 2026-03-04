@@ -2,13 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CATEGORY_CONFIG } from '../../constants/categories';
-// const CATEGORY_CONFIG = {
-//     food: { icon: 'silverware-fork-knife', color: '#FF9500', label: 'Ăn uống' },
-//     salary: { icon: 'cash-multiple', color: '#34C759', label: 'Lương' },
-//     transport: { icon: 'gas-station', color: '#007AFF', label: 'Di chuyển' },
-//     shopping: { icon: 'cart', color: '#FF2D55', label: 'Mua sắm' },
-//     default: { icon: 'help-circle', color: '#8E8E93', label: 'Khác' }
-// };
+
 
 const TransactionItem = ({ item, onPress, onLongPress, formatCurrency }) => {
     const category = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.default;
