@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity,
     ScrollView, Alert, Animated
@@ -7,6 +7,21 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addTransaction, updateTransaction, deleteTransaction } from '../services/transactionService';
+import { doc, getDoc, collection, query, where, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { auth, db } from '../services/firebaseConfig';
+import { CATEGORY_CONFIG } from '../constants/categories';
+
+const formatNumberOnly = (value, currencyCode) => {
+    if (!value) return '';
+    const number = parseInt(value.replace(/\D/g, ''));
+    if (isNaN(number)) return '';
+
+    // VND dùng vi-VN (1.000.000), USD dùng en-US (1,000)
+    const locale = currencyCode === 'VND' ? 'vi-VN' : 'en-US';
+    return new Intl.NumberFormat(locale).format(number);
+};
+
+
 
 const AddTransactionScreen = ({ navigation, route }) => {
     const editData = route.params?.transaction;
@@ -15,7 +30,8 @@ const AddTransactionScreen = ({ navigation, route }) => {
     const [category, setCategory] = useState(editData ? editData.category : 'Ăn uống');
     const [note, setNote] = useState(editData ? editData.note : '');
     const [isAmountFocused, setIsAmountFocused] = useState(false);
-
+    const [currency, setCurrency] = useState('VND');
+    const [allCategories, setAllCategories] = useState([]);
     const categories = {
         expense: [
             { name: 'Ăn uống', icon: 'food-fork-drink', color: '#FF9500' },
@@ -35,6 +51,56 @@ const AddTransactionScreen = ({ navigation, route }) => {
             { name: 'Khác', icon: 'wallet-plus', color: '#8E8E93' },
         ]
     };
+    const handleDeleteCategory = (item) => {
+        if (!item.id) return;
+
+        Alert.alert(
+            "Xóa danh mục",
+            `Bạn có chắc muốn xóa danh mục "${item.name}" không?`,
+            [
+                { text: "Hủy", style: "cancel" },
+                {
+                    text: "Xóa",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await deleteDoc(doc(db, "categories", item.id));
+                            if (category === item.name) setCategory('Ăn uống');
+                        } catch (error) {
+                            console.error("Lỗi xóa category:", error);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+    useEffect(() => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const fetchUserCurrency = async () => {
+            try {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists() && userDoc.data().currency) {
+                    setCurrency(userDoc.data().currency);
+                }
+            } catch (error) { console.log("Lỗi currency:", error); }
+        };
+        fetchUserCurrency();
+
+        const q = query(collection(db, "categories"), where("userId", "==", user.uid));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const customCats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            const defaultExpense = categories.expense.map(c => ({ ...c, type: 'expense' }));
+            const defaultIncome = categories.income.map(c => ({ ...c, type: 'income' }));
+
+            setAllCategories([...defaultExpense, ...defaultIncome, ...customCats]);
+        });
+
+        return () => unsubscribe();
+    }, []);
 
     const handleSave = async () => {
         if (!amount) return Alert.alert("Lỗi", "Vui lòng nhập số tiền");
@@ -43,10 +109,8 @@ const AddTransactionScreen = ({ navigation, route }) => {
 
         let success;
         if (editData) {
-            // Nếu là chế độ Sửa
             success = await updateTransaction(editData.id, data);
         } else {
-            // Nếu là chế độ Thêm mới
             success = await addTransaction(amount, type, category, note);
         }
 
@@ -56,12 +120,15 @@ const AddTransactionScreen = ({ navigation, route }) => {
         }
     };
 
-    const formatAmount = (value) => {
-        const number = value.replace(/[^0-9]/g, '');
-        if (!number) return '';
-        return new Intl.NumberFormat('vi-VN').format(parseInt(number));
-    };
+    const getDisplayCategories = () => {
+        // Lọc từ state allCategories (bao gồm cả mặc định và custom)
+        const filtered = allCategories.filter(cat => cat.type === type);
+        if (filtered.length === 0) {
+            return categories[type];
+        }
 
+        return filtered;
+    };
     const getCurrentCategories = () => categories[type];
     const selectedCategoryData = getCurrentCategories().find(c => c.name === category);
 
@@ -105,12 +172,14 @@ const AddTransactionScreen = ({ navigation, route }) => {
                         </Text>
 
                         <View style={styles.amountInputWrapper}>
-                            <Text style={styles.currencySymbol}>₫</Text>
+                            <Text style={styles.currencySymbol}>
+                                {currency === 'VND' ? '₫' : '$'}
+                            </Text>
                             <TextInput
                                 style={styles.amountInput}
                                 placeholder="0"
                                 keyboardType="numeric"
-                                value={formatAmount(amount)}
+                                value={formatNumberOnly(amount, currency)}
                                 onChangeText={(text) => setAmount(text.replace(/\D/g, ''))}
                                 placeholderTextColor="rgba(255,255,255,0.5)"
                                 onFocus={() => setIsAmountFocused(true)}
@@ -177,7 +246,9 @@ const AddTransactionScreen = ({ navigation, route }) => {
                     </View>
 
                     <View style={styles.categoryGrid}>
-                        {getCurrentCategories().map((item) => {
+                        {/* {getCurrentCategories().map((item) => { */}
+                        {getDisplayCategories().map((item) => {
+
                             const isSelected = category === item.name;
                             return (
                                 <TouchableOpacity
@@ -188,6 +259,7 @@ const AddTransactionScreen = ({ navigation, route }) => {
                                     ]}
                                     onPress={() => setCategory(item.name)}
                                     activeOpacity={0.7}
+                                    onLongPress={() => handleDeleteCategory(item)}
                                 >
                                     <View style={[
                                         styles.categoryIconWrapper,
@@ -214,6 +286,15 @@ const AddTransactionScreen = ({ navigation, route }) => {
                                 </TouchableOpacity>
                             );
                         })}
+                        <TouchableOpacity
+                            style={[styles.categoryItem, { borderStyle: 'dashed', borderColor: '#CBD5E0' }]}
+                            onPress={() => navigation.navigate('AddCategories', { type: type })}
+                        >
+                            <View style={[styles.categoryIconWrapper, { backgroundColor: '#F1F5F9' }]}>
+                                <MaterialCommunityIcons name="plus" size={24} color="#64748B" />
+                            </View>
+                            <Text style={styles.categoryName}>Thêm mới</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
 

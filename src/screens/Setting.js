@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Platform } from 'react-native';
 import { Text, List, Switch, Divider, Surface } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,7 +8,6 @@ import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Platform } from 'react-native';
 const handleLogout = () => {
     signOut(auth)
         .then(() => console.log('User signed out!'))
@@ -19,22 +18,24 @@ const Settings = ({ navigation }) => {
     const [reminderTime, setReminderTime] = useState('20:00');
     const [currency, setCurrency] = useState('VND'); // Thêm đơn vị tiền tệ theo Tuần 3
     const [loading, setLoading] = useState(true);
-    const [showPicker, setShowPicker] = useState(false);
     const [isReminderEnabled, setIsReminderEnabled] = useState(true);
     const user = auth.currentUser;
-
-    const onTimeChange = (event, selectedDate) => {
+    const [date, setDate] = useState(new Date());
+    const [showPicker, setShowPicker] = useState(false);
+    const onChange = (event, selectedDate) => {
+        // Android yêu cầu đóng thủ công ngay sau khi chọn
         setShowPicker(false);
 
-        if (selectedDate) {
+        if (event.type === 'set' && selectedDate) {
             setDate(selectedDate);
 
+            // Định dạng lại thành HH:mm để lưu vào Firestore
             const hours = selectedDate.getHours().toString().padStart(2, '0');
             const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
             const timeString = `${hours}:${minutes}`;
 
             setReminderTime(timeString);
-            updateSetting('reminderTime', timeString);
+            updateSetting('reminderTime', timeString); // Lưu backend
         }
     };
     useEffect(() => {
@@ -107,12 +108,15 @@ const Settings = ({ navigation }) => {
                             onPress={() => {
                                 // Ở đây bạn có thể dùng DateTimePicker
                                 // Tạm thời ví dụ đổi sang 21:00
-                                const newTime = "21:00";
-                                setReminderTime(newTime);
-                                updateSetting('reminderTime', newTime);
+                                // const newTime = "21:00";
+                                // setReminderTime(newTime);
+                                // updateSetting('reminderTime', newTime);
+                                console.log("aaa" + isReminderEnabled)
+                                setShowPicker(true)
                             }}
                             disabled={!isReminderEnabled}
                         />
+
                     </Surface>
                 </List.Section>
 
@@ -148,6 +152,16 @@ const Settings = ({ navigation }) => {
                     </Surface>
                 </List.Section>
             </ScrollView>
+            {showPicker && (
+                <DateTimePicker
+                    value={date}
+                    mode="time" // Chỉ chọn giờ/phút
+                    is24Hour={true}
+                    // display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    display='spinner'
+                    onChange={onChange}
+                />
+            )}
         </SafeAreaView>
     );
 };
