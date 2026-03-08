@@ -7,7 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addTransaction, updateTransaction, deleteTransaction } from '../services/transactionService';
-import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebaseConfig';
 import { CATEGORY_CONFIG } from '../constants/categories';
 
@@ -20,6 +20,9 @@ const formatNumberOnly = (value, currencyCode) => {
     const locale = currencyCode === 'VND' ? 'vi-VN' : 'en-US';
     return new Intl.NumberFormat(locale).format(number);
 };
+
+
+
 const AddTransactionScreen = ({ navigation, route }) => {
     const editData = route.params?.transaction;
     const [amount, setAmount] = useState(editData ? editData.amount.toString() : '');
@@ -48,10 +51,32 @@ const AddTransactionScreen = ({ navigation, route }) => {
             { name: 'Khác', icon: 'wallet-plus', color: '#8E8E93' },
         ]
     };
+    const handleDeleteCategory = (item) => {
+        if (!item.id) return;
 
+        Alert.alert(
+            "Xóa danh mục",
+            `Bạn có chắc muốn xóa danh mục "${item.name}" không?`,
+            [
+                { text: "Hủy", style: "cancel" },
+                {
+                    text: "Xóa",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await deleteDoc(doc(db, "categories", item.id));
+                            if (category === item.name) setCategory('Ăn uống');
+                        } catch (error) {
+                            console.error("Lỗi xóa category:", error);
+                        }
+                    }
+                }
+            ]
+        );
+    };
     useEffect(() => {
         const user = auth.currentUser;
-        if (!user) return; 
+        if (!user) return;
 
         const fetchUserCurrency = async () => {
             try {
@@ -96,10 +121,8 @@ const AddTransactionScreen = ({ navigation, route }) => {
     };
 
     const getDisplayCategories = () => {
-        // 1. Lọc từ state allCategories (bao gồm cả mặc định và custom)
+        // Lọc từ state allCategories (bao gồm cả mặc định và custom)
         const filtered = allCategories.filter(cat => cat.type === type);
-
-        // 2. NẾU filtered rỗng (do Firebase chưa load xong), hãy trả về categories tĩnh
         if (filtered.length === 0) {
             return categories[type];
         }
@@ -236,6 +259,7 @@ const AddTransactionScreen = ({ navigation, route }) => {
                                     ]}
                                     onPress={() => setCategory(item.name)}
                                     activeOpacity={0.7}
+                                    onLongPress={() => handleDeleteCategory(item)}
                                 >
                                     <View style={[
                                         styles.categoryIconWrapper,
