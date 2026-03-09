@@ -10,6 +10,7 @@ import { addTransaction, updateTransaction, deleteTransaction } from '../service
 import { doc, getDoc, collection, query, where, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebaseConfig';
 import { CATEGORY_CONFIG } from '../constants/categories';
+import DatePickerSection from '../components/AddTransaction.js/DatePickerSection';
 
 const formatNumberOnly = (value, currencyCode) => {
     if (!value) return '';
@@ -32,6 +33,7 @@ const AddTransactionScreen = ({ navigation, route }) => {
     const [isAmountFocused, setIsAmountFocused] = useState(false);
     const [currency, setCurrency] = useState('VND');
     const [allCategories, setAllCategories] = useState([]);
+    const [date, setDate] = useState(new Date());
     const categories = {
         expense: [
             { name: 'Ăn uống', icon: 'food-fork-drink', color: '#FF9500' },
@@ -297,7 +299,10 @@ const AddTransactionScreen = ({ navigation, route }) => {
                         </TouchableOpacity>
                     </View>
                 </View>
-
+                <DatePickerSection
+                    date={date}
+                    onDateChange={setDate}
+                />
                 {/* Note Section */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
