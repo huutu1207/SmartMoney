@@ -19,8 +19,10 @@ import { deleteTransaction } from '../services/transactionService';
 import SummaryCard from '../components/Dashboard/SummaryCard';
 import TransactionItem from '../components/Dashboard/TransactionItem';
 import { CATEGORY_CONFIG } from '../constants/categories';
+import * as ImagePicker from 'expo-image-picker'
 //5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25 SHA1
 const { width } = Dimensions.get('window');
+
 
 const getPeriodRange = (period, anchorDate) => {
     const year = anchorDate.getFullYear();
@@ -71,6 +73,45 @@ const Dashboard = ({ navigation }) => {
             signDisplay: 'auto'
         }).format(safeAmount);
     };
+
+    const handleScanPress = () => {
+        Alert.alert(
+            "Quét hóa đơn",
+            "Bạn muốn chọn ảnh từ đâu?",
+            [
+                { text: "Chụp ảnh mới", onPress: takePhoto },
+                { text: "Chọn từ Thư viện", onPress: pickImage },
+                { text: "Hủy", style: "cancel" }
+            ]
+        );
+    };
+    const takePhoto = async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') return Alert.alert("Lỗi", "Cần quyền camera!");
+
+        let result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true, // Cho phép cắt ảnh hóa đơn cho gọn
+            quality: 1, // Độ phân giải cao nhất để AI Tuần 8 dễ đọc
+        });
+
+        if (!result.canceled) {
+            // Chuyển sang màn hình xem trước (mình sẽ làm ở bước sau)
+            navigation.navigate('ScanPreview', { imageUri: result.assets[0].uri });
+        }
+    };
+
+    const pickImage = async () => {
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            navigation.navigate('ScanPreview', { imageUri: result.assets[0].uri });
+        }
+    };
+
     const confirmDelete = (id) => {
         Alert.alert(
             "Xác nhận xóa",
@@ -211,7 +252,7 @@ const Dashboard = ({ navigation }) => {
 
                 {/* Quick Actions */}
                 <View style={styles.actionRow}>
-                    <TouchableOpacity style={styles.scanBtn} activeOpacity={0.8}>
+                    <TouchableOpacity style={styles.scanBtn} activeOpacity={0.8} onPress={handleScanPress}>
                         <LinearGradient colors={['#3B82F6', '#4F46E5']} style={styles.actionIcon}>
                             <MaterialCommunityIcons name="camera" size={28} color="white" />
                         </LinearGradient>

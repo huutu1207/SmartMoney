@@ -32,6 +32,20 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.201189817902-9mo5uip3752nfc4lcq6jv26drrd5pq48.apps.googleusercontent.com"
         }
+
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cho phép SmartMoney truy cập camera để quét hóa đơn tự động.",
+          "microphonePermission": "Cho phép SmartMoney dùng micro (nếu cần)."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cho phép SmartMoney truy cập thư viện ảnh để chọn hóa đơn."
+        }
       ],
       "@react-native-firebase/app",
       "@react-native-firebase/auth",

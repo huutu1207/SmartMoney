@@ -19,6 +19,7 @@ import UserProfileScreen from './src/screens/UserProfile';
 
 import AddTransactionScreen from './src/screens/AddTransactions';
 import AddCategories from './src/screens/AddCategories';
+import ScanPreviewScreen from './src/screens/ScanPreview';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -71,7 +72,7 @@ export default function App() {
               <Stack.Screen name="AddTransaction" component={AddTransactionScreen} />
               <Stack.Screen name="UserProfile" component={UserProfileScreen} />
               <Stack.Screen name="AddCategories" component={AddCategories} />
-              
+              <Stack.Screen name="ScanPreview" component={ScanPreviewScreen} />
 
               </>
             ) : (
