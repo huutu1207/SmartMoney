@@ -10,6 +10,8 @@ import { addTransaction, updateTransaction, deleteTransaction } from '../service
 import { doc, getDoc, collection, query, where, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebaseConfig';
 import { CATEGORY_CONFIG } from '../constants/categories';
+import DatePickerSection from '../components/AddTransaction.js/DatePickerSection';
+// import { setSelectedLog } from 'react-native/types_generated/Libraries/LogBox/Data/LogBoxData';
 
 const formatNumberOnly = (value, currencyCode) => {
     if (!value) return '';
@@ -32,6 +34,7 @@ const AddTransactionScreen = ({ navigation, route }) => {
     const [isAmountFocused, setIsAmountFocused] = useState(false);
     const [currency, setCurrency] = useState('VND');
     const [allCategories, setAllCategories] = useState([]);
+    const [date, setDate] = useState(new Date());
     const categories = {
         expense: [
             { name: 'Ăn uống', icon: 'food-fork-drink', color: '#FF9500' },
@@ -98,20 +101,31 @@ const AddTransactionScreen = ({ navigation, route }) => {
 
             setAllCategories([...defaultExpense, ...defaultIncome, ...customCats]);
         });
-
+        if (route.params?.autoFill) {
+            const { amount, date, note, category: aiCategory } = route.params.autoFill;
+            setAmount(amount);
+            // setDate(new Date(date));
+            if (date && typeof (date) === 'string') {
+                setDate(new Date(date));
+            }
+            if (aiCategory) {
+                setCategory(aiCategory);
+            }
+            setNote(note);
+        }
         return () => unsubscribe();
-    }, []);
+    }, [route.params?.autoFill]);
 
     const handleSave = async () => {
         if (!amount) return Alert.alert("Lỗi", "Vui lòng nhập số tiền");
 
-        const data = { amount: Number(amount), type, category, note };
+        const data = { amount: Number(amount), type, category, note, date: date };
 
         let success;
         if (editData) {
             success = await updateTransaction(editData.id, data);
         } else {
-            success = await addTransaction(amount, type, category, note);
+            success = await addTransaction(amount, type, category, note, date);
         }
 
         if (success) {
@@ -129,6 +143,7 @@ const AddTransactionScreen = ({ navigation, route }) => {
 
         return filtered;
     };
+
     const getCurrentCategories = () => categories[type];
     const selectedCategoryData = getCurrentCategories().find(c => c.name === category);
 
@@ -297,7 +312,10 @@ const AddTransactionScreen = ({ navigation, route }) => {
                         </TouchableOpacity>
                     </View>
                 </View>
-
+                <DatePickerSection
+                    date={date}
+                    onDateChange={setDate}
+                />
                 {/* Note Section */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>

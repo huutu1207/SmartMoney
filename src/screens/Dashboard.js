@@ -19,44 +19,44 @@ import { deleteTransaction } from '../services/transactionService';
 import SummaryCard from '../components/Dashboard/SummaryCard';
 import TransactionItem from '../components/Dashboard/TransactionItem';
 import { CATEGORY_CONFIG } from '../constants/categories';
+import * as ImagePicker from 'expo-image-picker'
 //5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25 SHA1
 const { width } = Dimensions.get('window');
 
-const getPeriodRange = (period) => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const currentDate = now.getDate();
+
+const getPeriodRange = (period, anchorDate) => {
+    const year = anchorDate.getFullYear();
+    const month = anchorDate.getMonth();
+    const date = anchorDate.getDate();
 
     switch (period) {
         case 'week':
-            // JS: CN = 0, T2 = 1, ..., T7 = 6
-            const day = now.getDay();
-            // Tính khoảng cách đến Thứ 2 (nếu là CN (0) thì lùi 6 ngày, còn lại lùi day - 1)
-            const diffToMonday = currentDate - (day === 0 ? 6 : day - 1);
-            const monday = new Date(now.setDate(diffToMonday));
+            const day = anchorDate.getDay();
+            const diffToMonday = date - (day === 0 ? 6 : day - 1);
+            const monday = new Date(anchorDate);
+            monday.setDate(diffToMonday);
             monday.setHours(0, 0, 0, 0);
 
             const sunday = new Date(monday);
             sunday.setDate(monday.getDate() + 6);
             sunday.setHours(23, 59, 59, 999);
-
             return { start: monday, end: sunday };
 
         case 'month':
-            const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
-            const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999);
-            return { start: firstDayOfMonth, end: lastDayOfMonth };
+            const startMonth = new Date(year, month, 1, 0, 0, 0, 0);
+            const endMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
+            return { start: startMonth, end: endMonth };
 
         case 'year':
-            const firstDayOfYear = new Date(currentYear, 0, 1);
-            const lastDayOfYear = new Date(currentYear, 11, 31, 23, 59, 59, 999);
-            return { start: firstDayOfYear, end: lastDayOfYear };
+            const startYear = new Date(year, 0, 1, 0, 0, 0, 0);
+            const endYear = new Date(year, 11, 31, 23, 59, 59, 999);
+            return { start: startYear, end: endYear };
 
         default:
             return { start: null, end: null };
     }
 };
+
 
 const Dashboard = ({ navigation }) => {
     const [selectedPeriod, setSelectedPeriod] = useState('month');
@@ -64,7 +64,7 @@ const Dashboard = ({ navigation }) => {
     const [totalBalance, setTotalBalance] = useState(0);
     const [income, setIncome] = useState(0);
     const [expense, setExpense] = useState(0);
-
+    const [currentDate, setCurrentDate] = useState(new Date());
     const formatCurrency = (amount) => {
         const safeAmount = Number(amount) || 0
         return new Intl.NumberFormat('vi-VN', {
@@ -73,6 +73,45 @@ const Dashboard = ({ navigation }) => {
             signDisplay: 'auto'
         }).format(safeAmount);
     };
+
+    const handleScanPress = () => {
+        Alert.alert(
+            "Quét hóa đơn",
+            "Bạn muốn chọn ảnh từ đâu?",
+            [
+                { text: "Chụp ảnh mới", onPress: takePhoto },
+                { text: "Chọn từ Thư viện", onPress: pickImage },
+                { text: "Hủy", style: "cancel" }
+            ]
+        );
+    };
+    const takePhoto = async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') return Alert.alert("Lỗi", "Cần quyền camera!");
+
+        let result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true, // Cho phép cắt ảnh hóa đơn cho gọn
+            quality: 1, // Độ phân giải cao nhất để AI Tuần 8 dễ đọc
+        });
+
+        if (!result.canceled) {
+            // Chuyển sang màn hình xem trước (mình sẽ làm ở bước sau)
+            navigation.navigate('ScanPreview', { imageUri: result.assets[0].uri });
+        }
+    };
+
+    const pickImage = async () => {
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            navigation.navigate('ScanPreview', { imageUri: result.assets[0].uri });
+        }
+    };
+
     const confirmDelete = (id) => {
         Alert.alert(
             "Xác nhận xóa",
@@ -93,13 +132,34 @@ const Dashboard = ({ navigation }) => {
             ]
         );
     };
+    const changePeriod = (direction) => {
+        const newDate = new Date(currentDate);
+        const step = direction === 'next' ? 1 : -1;
+
+        if (selectedPeriod === 'month') {
+            newDate.setMonth(newDate.getMonth() + step);
+        } else if (selectedPeriod === 'week') {
+            newDate.setDate(newDate.getDate() + (step * 7));
+        } else if (selectedPeriod === 'year') {
+            newDate.setFullYear(newDate.getFullYear() + step);
+        }
+        setCurrentDate(newDate);
+    };
+    const formatPeriodLabel = () => {
+        if (selectedPeriod === 'month') {
+            return `Tháng ${currentDate.getMonth() + 1}, ${currentDate.getFullYear()}`;
+        }
+        if (selectedPeriod === 'year') {
+            return `Năm ${currentDate.getFullYear()}`;
+        }
+    };
     // Lắng nghe dữ liệu thời gian thực từ Firestore
     useEffect(() => {
         const user = auth.currentUser;
         if (!user) return;
 
         const userId = user.uid;
-        const { start, end } = getPeriodRange(selectedPeriod);
+        const { start, end } = getPeriodRange(selectedPeriod, currentDate);
 
         // Xây dựng Query với giới hạn 2 đầu thời gian
         let q = query(
@@ -110,7 +170,7 @@ const Dashboard = ({ navigation }) => {
             orderBy("date", "desc")
         );
 
-        
+
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             let tempIncome = 0;
             let tempExpense = 0;
@@ -140,7 +200,7 @@ const Dashboard = ({ navigation }) => {
             setTotalBalance(tempIncome - tempExpense);
         });
         return () => unsubscribe();
-    }, [selectedPeriod]);
+    }, [selectedPeriod, currentDate]);
 
     return (
 
@@ -174,11 +234,25 @@ const Dashboard = ({ navigation }) => {
                     selectedPeriod={selectedPeriod}
                     onPeriodChange={setSelectedPeriod}
                     formatCurrency={formatCurrency} />
+                <View style={styles.dateNavigation}>
 
+                    <TouchableOpacity onPress={() => changePeriod('prev')} style={styles.navBtn}>
+                        <MaterialCommunityIcons name="chevron-left" size={28} color="#3B82F6" />
+                    </TouchableOpacity>
+
+                    <View style={styles.dateLabelContainer}>
+                        <MaterialCommunityIcons name="calendar-month-outline" size={18} color="rgba(27, 142, 187, 0.7)" />
+                        <Text style={styles.dateLabel}>{formatPeriodLabel(currentDate, selectedPeriod)}</Text>
+                    </View>
+
+                    <TouchableOpacity onPress={() => changePeriod('next')} style={styles.navBtn}>
+                        <MaterialCommunityIcons name="chevron-right" size={28} color="#3B82F6" />
+                    </TouchableOpacity>
+                </View>
 
                 {/* Quick Actions */}
                 <View style={styles.actionRow}>
-                    <TouchableOpacity style={styles.scanBtn} activeOpacity={0.8}>
+                    <TouchableOpacity style={styles.scanBtn} activeOpacity={0.8} onPress={handleScanPress}>
                         <LinearGradient colors={['#3B82F6', '#4F46E5']} style={styles.actionIcon}>
                             <MaterialCommunityIcons name="camera" size={28} color="white" />
                         </LinearGradient>
@@ -249,7 +323,39 @@ const styles = StyleSheet.create({
 
     scrollBody: { padding: 20 },
 
-
+    dateNavigation: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 15,
+        marginTop: -10, // Kéo sát lên SummaryCard cho đẹp
+        marginBottom: 10,
+    },
+    navBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#FFFFFF', // Nút trắng nổi bật
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+    },
+    dateLabelContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#EFF6FF', // Xanh nhạt tinh tế
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    dateLabel: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#3B82F6',
+    },
 
     actionRow: { flexDirection: 'row', gap: 12, marginTop: 25 },
     scanBtn: { flex: 2, backgroundColor: 'white', borderRadius: 20, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12, borderWeight: 1, borderColor: '#F1F5F9', elevation: 2 },

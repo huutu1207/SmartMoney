@@ -1,7 +1,7 @@
 import { db, auth } from './firebaseConfig';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, deleteDoc} from 'firebase/firestore';
 
-export const addTransaction = async (amount, type, category, note) => {
+export const addTransaction = async (amount, type, category, note, date) => {
     try {
         const userId = auth.currentUser.uid;
 
@@ -12,6 +12,8 @@ export const addTransaction = async (amount, type, category, note) => {
             category: category,
             note: note,
             date: serverTimestamp(),
+            date: date || new Date(), // Dùng date truyền vào, nếu không có mới lấy ngày hiện tại
+            createdAt: serverTimestamp()
         });
 
         console.log("Giao dịch đã được lưu!");
