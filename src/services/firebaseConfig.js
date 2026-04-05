@@ -4,7 +4,8 @@ import { getFirestore } from "firebase/firestore";
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 const firebaseConfig = {
-    apiKey: "AIzaSyAPNRK_X0ZwjBEyLzwIxjaE-wMPHP34YD0",
+    // apiKey: "AIzaSyAPNRK_X0ZwjBEyLzwIxjaE-wMPHP34YD0",
+    apiKey:process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
     authDomain: "smartmoney-fc077.firebaseapp.com",
     projectId: "smartmoney-fc077",
     storageBucket: "smartmoney-fc077.firebasestorage.app",
