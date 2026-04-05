@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as FileSystem from 'expo-file-system/legacy';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 
-const API_KEY = "AIzaSyCDqf9c3Mo-eEbtTXGm3OY1KY9_UkNguD4";
+const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 // Hàm chuẩn hóa ngày tháng
