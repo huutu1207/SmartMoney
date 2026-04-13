@@ -65,7 +65,7 @@ export const extractInfoWithGemini = async (rawText, userCategories) => {
             date: parseDateString(data.date).toISOString() // Đồng bộ chuẩn ISO
         };
     } catch (error) {
-        console.log("⚠️ Lỗi Gemini:", error.message);
+        console.log("Lỗi Gemini:", error.message);
         const fallback = extractWithRegex(rawText);
         return { ...fallback, category: "Khác" };
     }

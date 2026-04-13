@@ -1,45 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Platform } from 'react-native';
-import { Text, List, Switch, Divider, Surface } from 'react-native-paper';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, ScrollView, Platform, Alert, ActivityIndicator } from 'react-native';
+import { Text, List, Switch, Divider, Surface, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { auth, db } from '../services/firebaseConfig';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
-
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import DateTimePicker from '@react-native-community/datetimepicker';
-const handleLogout = () => {
-    signOut(auth)
-        .then(() => console.log('User signed out!'))
-        .catch(error => console.log(error));
-};
+import { registerForPushNotificationsAsync, scheduleDailyReminder } from '../services/notificationService';
+import * as Notifications from 'expo-notifications';
 const Settings = ({ navigation }) => {
-    // Trạng thái bật/tắt thông báo
+    const theme = useTheme();
     const [reminderTime, setReminderTime] = useState('20:00');
-    const [currency, setCurrency] = useState('VND'); // Thêm đơn vị tiền tệ theo Tuần 3
-    const [loading, setLoading] = useState(true);
+    const [currency, setCurrency] = useState('VND');
     const [isReminderEnabled, setIsReminderEnabled] = useState(true);
-    const user = auth.currentUser;
+    const [loading, setLoading] = useState(true);
+
     const [date, setDate] = useState(new Date());
     const [showPicker, setShowPicker] = useState(false);
-    const onChange = (event, selectedDate) => {
-        // Android yêu cầu đóng thủ công ngay sau khi chọn
-        setShowPicker(false);
 
-        if (event.type === 'set' && selectedDate) {
-            setDate(selectedDate);
+    const user = auth.currentUser;
 
-            // Định dạng lại thành HH:mm để lưu vào Firestore
-            const hours = selectedDate.getHours().toString().padStart(2, '0');
-            const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
-            const timeString = `${hours}:${minutes}`;
-
-            setReminderTime(timeString);
-            updateSetting('reminderTime', timeString); // Lưu backend
-        }
+    // Hàm chuyển đổi string "HH:mm" thành đối tượng Date để Picker hiển thị đúng
+    const parseTimeStringToDate = (timeStr) => {
+        const [hours, minutes] = timeStr.split(':');
+        const d = new Date();
+        d.setHours(parseInt(hours), parseInt(minutes), 0);
+        return d;
     };
+
     useEffect(() => {
-        const fetchSettings = async () => {
+        const initSettings = async () => {
+            // Xin quyền thông báo ngay khi màn hình Settings được load
+            await registerForPushNotificationsAsync();
+
             if (!user) return;
             try {
                 const docRef = doc(db, "users", user.uid);
@@ -47,9 +40,11 @@ const Settings = ({ navigation }) => {
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    // Nếu đã có cấu hình trong DB thì set vào State
                     if (data.isReminderEnabled !== undefined) setIsReminderEnabled(data.isReminderEnabled);
-                    if (data.reminderTime) setReminderTime(data.reminderTime);
+                    if (data.reminderTime) {
+                        setReminderTime(data.reminderTime);
+                        setDate(parseTimeStringToDate(data.reminderTime));
+                    }
                     if (data.currency) setCurrency(data.currency);
                 }
             } catch (error) {
@@ -58,22 +53,62 @@ const Settings = ({ navigation }) => {
                 setLoading(false);
             }
         };
-        fetchSettings();
-    }, []);
+
+        initSettings();
+    }, [user]);
 
     const updateSetting = async (key, value) => {
         try {
             const userRef = doc(db, "users", user.uid);
-            await updateDoc(userRef, {
-                [key]: value
-            });
-            console.log(`Đã cập nhật ${key} thành công`);
+            // Dùng setDoc với merge: true sẽ tạo mới nếu chưa có, hoặc cập nhật nếu đã có
+            await setDoc(userRef, { [key]: value }, { merge: true });
         } catch (error) {
-            // Nếu document chưa tồn tại, dùng setDoc
-            console.log("Cập nhật thất bại, đang thử khởi tạo lại...");
-            await setDoc(doc(db, "users", user.uid), { [key]: value }, { merge: true });
+            console.error("Cập nhật thất bại:", error);
         }
     };
+
+    const onChangeTime = async (event, selectedDate) => {
+        setShowPicker(false);
+        if (event.type === 'set' && selectedDate) {
+            setDate(selectedDate);
+            const hours = selectedDate.getHours().toString().padStart(2, '0');
+            const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+            const timeString = `${hours}:${minutes}`;
+
+            setReminderTime(timeString);
+            updateSetting('reminderTime', timeString);
+
+            // Cập nhật lại lịch nhắc nhở ngay lập tức nếu đang bật
+            if (isReminderEnabled) {
+                try {
+                    await scheduleDailyReminder(selectedDate.getHours(), selectedDate.getMinutes());
+                    console.log("Đã cập nhật giờ nhắc nhở mới");
+                } catch (err) {
+                    console.log("Lỗi đặt lịch thông báo:", err);
+                }
+            }
+        }
+    };
+
+    const handleLogout = () => {
+        Alert.alert("Đăng xuất", "Bạn có chắc chắn muốn thoát không?", [
+            { text: "Hủy", style: "cancel" },
+            {
+                text: "Đăng xuất",
+                style: "destructive",
+                onPress: () => signOut(auth).catch(err => console.log(err))
+            }
+        ]);
+    };
+
+    if (loading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center' }]}>
+                <ActivityIndicator size="large" color="#5856D6" />
+            </View>
+        );
+    }
+
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.header}>
@@ -91,32 +126,37 @@ const Settings = ({ navigation }) => {
                             right={() => (
                                 <Switch
                                     value={isReminderEnabled}
-                                    onValueChange={(value) => {
+                                    onValueChange={async (value) => {
                                         setIsReminderEnabled(value);
                                         updateSetting('isReminderEnabled', value);
+
+                                        if (value) {
+                                            // Lấy giờ từ state để đặt lịch
+                                            const [h, m] = reminderTime.split(':').map(Number);
+                                            await scheduleDailyReminder(h, m);
+                                            Alert.alert("Thông báo", `Đã bật nhắc nhở lúc ${reminderTime}`);
+                                        } else {
+                                            // Hủy tất cả nếu tắt
+                                            await Notifications.cancelAllScheduledNotificationsAsync();
+                                            console.log("Đã hủy tất cả nhắc nhở");
+                                        }
+                                        const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+                                        console.log("Danh sách thông báo đã đặt lịch:", scheduled.length);
                                     }}
+
                                     color="#5856D6"
                                 />
                             )}
                         />
-
                         <Divider />
                         <List.Item
                             title="Thời gian nhắc"
-                            description={reminderTime + " mỗi ngày"}
-                            // ... các props khác
-                            onPress={() => {
-                                // Ở đây bạn có thể dùng DateTimePicker
-                                // Tạm thời ví dụ đổi sang 21:00
-                                // const newTime = "21:00";
-                                // setReminderTime(newTime);
-                                // updateSetting('reminderTime', newTime);
-                                console.log("aaa" + isReminderEnabled)
-                                setShowPicker(true)
-                            }}
+                            description={`${reminderTime} mỗi ngày`}
+                            left={props => <List.Icon {...props} icon="clock-outline" color="#5856D6" />}
+                            onPress={() => setShowPicker(true)}
                             disabled={!isReminderEnabled}
+                            right={props => <List.Icon {...props} icon="chevron-right" />}
                         />
-
                     </Surface>
                 </List.Section>
 
@@ -125,41 +165,39 @@ const Settings = ({ navigation }) => {
                     <Surface style={styles.surface} elevation={0}>
                         <List.Item
                             title="Thông tin cá nhân"
-                            left={props => <List.Icon {...props} icon="account-outline" />}
+                            left={props => <List.Icon {...props} icon="account-outline" color="#007AFF" />}
                             right={props => <List.Icon {...props} icon="chevron-right" />}
-                            onPress={() => { navigation.navigate('UserProfile') }}
+                            onPress={() => navigation.navigate('UserProfile')}
                         />
+                        <Divider />
                         <List.Item
                             title="Đơn vị tiền tệ"
                             description={currency}
                             left={props => <List.Icon {...props} icon="currency-usd" color="#34C759" />}
                             onPress={() => {
-                                // Ví dụ: Đổi nhanh hoặc mở Menu chọn
                                 const newCurrency = currency === 'VND' ? 'USD' : 'VND';
                                 setCurrency(newCurrency);
                                 updateSetting('currency', newCurrency);
                             }}
                         />
-
-
                         <Divider />
                         <List.Item
                             title="Đăng xuất"
                             titleStyle={{ color: '#FF3B30' }}
                             left={props => <List.Icon {...props} icon="logout" color="#FF3B30" />}
-                            onPress={() => handleLogout()}
+                            onPress={handleLogout}
                         />
                     </Surface>
                 </List.Section>
             </ScrollView>
+
             {showPicker && (
                 <DateTimePicker
                     value={date}
-                    mode="time" // Chỉ chọn giờ/phút
+                    mode="time"
                     is24Hour={true}
-                    // display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    display='spinner'
-                    onChange={onChange}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={onChangeTime}
                 />
             )}
         </SafeAreaView>
