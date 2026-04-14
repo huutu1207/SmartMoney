@@ -24,6 +24,7 @@ import UserProfileScreen from './src/screens/UserProfile';
 import AddTransactionScreen from './src/screens/AddTransactions';
 import AddCategories from './src/screens/AddCategories';
 import ScanPreviewScreen from './src/screens/ScanPreview';
+import StatisticsScreen from './src/screens/Statistics';
 
 // Tạo Ref để điều hướng từ bên ngoài component (dành cho thông báo)
 export const navigationRef = createNavigationContainerRef();
@@ -36,7 +37,15 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ color, size }) => {
-          let iconName = route.name === 'Trang chủ' ? 'view-dashboard' : 'cog';
+          let iconName;
+          // Logic chọn icon theo tên route
+          if (route.name === 'Trang chủ') {
+            iconName = 'view-dashboard';
+          } else if (route.name === 'Thống kê') {
+            iconName = 'chart-pie';
+          } else if (route.name === 'Cài đặt') {
+            iconName = 'cog';
+          }
           return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#5856D6',
@@ -45,6 +54,7 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Trang chủ" component={Dashboard} />
+      <Tab.Screen name="Thống kê" component={StatisticsScreen} />
       <Tab.Screen name="Cài đặt" component={Settings} />
     </Tab.Navigator>
   );
