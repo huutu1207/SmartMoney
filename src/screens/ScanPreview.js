@@ -50,7 +50,7 @@ const ScanPreviewScreen = ({ route, navigation }) => {
             }
         } catch (error) {
             console.log("Lỗi Hybrid OCR:", error);
-            Alert.alert("Thông báo", "AI đang bận một chút, em hãy thử lại sau nhé!");
+            Alert.alert("Thông báo", "AI đang bận một chút, hãy thử lại sau!");
         } finally {
             setLoading(false);
             setStatusText("");
