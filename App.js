@@ -34,6 +34,7 @@ import AddTransactionScreen from './src/screens/AddTransactions';
 import AddCategories from './src/screens/AddCategories';
 import ScanPreviewScreen from './src/screens/ScanPreview';
 import StatisticsScreen from './src/screens/Statistics';
+import ChangePasswordScreen from './src/screens/ChangePassword';
 
 // --- IMPORT CONTEXT ---
 import { ThemeContext, ThemeProvider } from './src/context/ThemeContext'; // 2. Thêm ThemeProvider
@@ -121,6 +122,7 @@ function AppContent() {
                 <Stack.Screen name="UserProfile" component={UserProfileScreen} />
                 <Stack.Screen name="AddCategories" component={AddCategories} />
                 <Stack.Screen name="ScanPreview" component={ScanPreviewScreen} />
+                <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
               </>
             ) : (
               <>

@@ -9,6 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { db, auth } from '../services/firebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import ChangePasswordScreen from './ChangePassword';
 
 const UserProfileScreen = ({ navigation }) => {
     // 1. Khai báo các State để lưu trữ thông tin
@@ -53,6 +55,17 @@ const UserProfileScreen = ({ navigation }) => {
         };
         fetchUserData();
     }, []);
+
+    const handleLogout = () => {
+        Alert.alert("Đăng xuất", "Bạn có chắc chắn muốn thoát không?", [
+            { text: "Hủy", style: "cancel" },
+            {
+                text: "Đăng xuất",
+                style: "destructive",
+                onPress: () => signOut(auth).catch(err => console.log(err))
+            }
+        ]);
+    };
 
     const handleSave = async () => {
         try {
@@ -338,13 +351,14 @@ const UserProfileScreen = ({ navigation }) => {
 
                         {/* Các mục cài đặt thông thường (Đổi mật khẩu, Bảo mật, Thông báo) */}
                         {[
-                            { label: 'Đổi mật khẩu', icon: 'lock-reset', color: theme.colors.primary, bgColor: theme.colors.primaryContainer },
+                            { label: 'Đổi mật khẩu', icon: 'lock-reset', color: theme.colors.primary, bgColor: theme.colors.primaryContainer, onPress: () => navigation.navigate('ChangePassword')},
                             { label: 'Bảo mật', icon: 'shield-check', color: '#34C759', bgColor: '#34C75920' },
                             { label: 'Thông báo', icon: 'bell', color: '#FF9500', bgColor: '#FF950020' },
                         ].map((item, index) => (
                             <TouchableOpacity
                                 key={index}
                                 style={[styles.settingItem, { borderBottomColor: theme.colors.outlineVariant }]}
+                                onPress={() => item.onPress?.()}
                             >
                                 <View style={styles.settingLeft}>
                                     <View style={[styles.settingIconWrapper, { backgroundColor: item.bgColor }]}>
@@ -357,7 +371,9 @@ const UserProfileScreen = ({ navigation }) => {
                         ))}
 
                         {/* Nút Đăng xuất - Sử dụng cặp màu Error của hệ thống */}
-                        <TouchableOpacity style={[styles.settingItem, styles.settingItemLast]}>
+                        <TouchableOpacity style={[styles.settingItem, styles.settingItemLast]}
+                            onPress={handleLogout}
+                        >
                             <View style={styles.settingLeft}>
                                 <View style={[styles.settingIconWrapper, { backgroundColor: theme.colors.errorContainer }]}>
                                     <MaterialCommunityIcons name="logout" size={22} color={theme.colors.error} />
