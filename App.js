@@ -1,17 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import React, { useState, useEffect, useContext } from 'react'; // 1. Thêm useContext
+import {
+  MD3LightTheme,
+  MD3DarkTheme,
+  PaperProvider,
+  adaptNavigationTheme,
+  ActivityIndicator,
+} from 'react-native-paper';
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+  DefaultTheme as NavigationDefaultTheme,
+  DarkTheme as NavigationDarkTheme,
+} from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Provider as PaperProvider, ActivityIndicator } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { View } from 'react-native';
 
-// Firebase logic
+// Firebase & Notifications
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './src/services/firebaseConfig';
-
-// Notification Service
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync } from './src/services/notificationService';
 
@@ -26,26 +35,34 @@ import AddCategories from './src/screens/AddCategories';
 import ScanPreviewScreen from './src/screens/ScanPreview';
 import StatisticsScreen from './src/screens/Statistics';
 
-// Tạo Ref để điều hướng từ bên ngoài component (dành cho thông báo)
-export const navigationRef = createNavigationContainerRef();
+// --- IMPORT CONTEXT ---
+import { ThemeContext, ThemeProvider } from './src/context/ThemeContext'; // 2. Thêm ThemeProvider
 
+export const navigationRef = createNavigationContainerRef();
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
+
+const { LightTheme, DarkTheme } = adaptNavigationTheme({
+  reactNavigationLight: NavigationDefaultTheme,
+  reactNavigationDark: NavigationDarkTheme,
+});
+
+const customLightTheme = {
+  ...MD3LightTheme,
+  colors: { ...MD3LightTheme.colors, ...LightTheme.colors, primary: '#5856D6' }
+};
+
+const customDarkTheme = {
+  ...MD3DarkTheme,
+  colors: { ...MD3DarkTheme.colors, ...DarkTheme.colors, primary: '#BB86FC' }
+};
 
 function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ color, size }) => {
-          let iconName;
-          // Logic chọn icon theo tên route
-          if (route.name === 'Trang chủ') {
-            iconName = 'view-dashboard';
-          } else if (route.name === 'Thống kê') {
-            iconName = 'chart-pie';
-          } else if (route.name === 'Cài đặt') {
-            iconName = 'cog';
-          }
+          let iconName = route.name === 'Trang chủ' ? 'view-dashboard' : route.name === 'Thống kê' ? 'chart-pie' : 'cog';
           return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#5856D6',
@@ -60,36 +77,28 @@ function MainTabs() {
   );
 }
 
-export default function App() {
+
+function AppContent() {
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
 
-  useEffect(() => {
-    // 1. Cài đặt thông báo
-    const setupNotifications = async () => {
-      await registerForPushNotificationsAsync();
-    };
-    setupNotifications();
+  const { isDarkMode } = useContext(ThemeContext);
 
-    // 2. Lắng nghe khi người dùng nhấn vào thông báo
+  const theme = isDarkMode ? customDarkTheme : customLightTheme;
+
+  useEffect(() => {
+    registerForPushNotificationsAsync();
     const subscription = Notifications.addNotificationResponseReceivedListener(response => {
       const screen = response.notification.request.content.data?.screen;
-      if (screen && navigationRef.isReady()) {
-        // Chuyển hướng đến màn hình AddTransaction nếu được set trong data của thông báo
-        navigationRef.navigate(screen);
-      }
+      if (screen && navigationRef.isReady()) navigationRef.navigate(screen);
     });
 
-    // 3. Lắng nghe trạng thái đăng nhập
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (initializing) setInitializing(false);
     });
 
-    return () => {
-      unsubscribe();
-      subscription.remove(); // Cleanup listener thông báo
-    };
+    return () => { unsubscribe(); subscription.remove(); };
   }, []);
 
   if (initializing) {
@@ -102,9 +111,8 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <PaperProvider>
-        {/* Truyền ref vào NavigationContainer */}
-        <NavigationContainer ref={navigationRef}>
+      <PaperProvider theme={theme}>
+        <NavigationContainer ref={navigationRef} theme={theme}>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             {user ? (
               <>
@@ -124,5 +132,14 @@ export default function App() {
         </NavigationContainer>
       </PaperProvider>
     </SafeAreaProvider>
+  );
+}
+
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }

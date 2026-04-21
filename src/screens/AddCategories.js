@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,14 +6,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { db, auth } from '../services/firebaseConfig';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ICON_LIST, COLOR_LIST } from '../constants/icon';
-
+import { useTheme } from 'react-native-paper';
+import { ThemeContext } from '../context/ThemeContext';
 const AddCategoryScreen = ({ navigation, route }) => {
+    const theme = useTheme();
     const [type, setType] = useState(route.params?.type || 'expense');
     const [name, setName] = useState('');
     const [selectedIcon, setSelectedIcon] = useState('tag-outline');
     const [selectedColor, setSelectedColor] = useState('#667EEA');
     const [isNameFocused, setIsNameFocused] = useState(false);
-
+    const { isDarkMode } = useContext(ThemeContext);
     const handleSave = async () => {
         if (!name.trim()) {
             Alert.alert("Lỗi", "Vui lòng nhập tên danh mục");
@@ -28,12 +30,12 @@ const AddCategoryScreen = ({ navigation, route }) => {
 
         try {
             await addDoc(collection(db, "categories"), {
-                userId: user.uid,           
-                name: name.trim(),          
-                icon: selectedIcon,         
-                color: selectedColor,      
-                type: type,                
-                createdAt: serverTimestamp() 
+                userId: user.uid,
+                name: name.trim(),
+                icon: selectedIcon,
+                color: selectedColor,
+                type: type,
+                createdAt: serverTimestamp()
             });
 
             Alert.alert("Thành công", "Danh mục đã được tạo!");
@@ -46,15 +48,20 @@ const AddCategoryScreen = ({ navigation, route }) => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            <View style={[styles.header, {
+                backgroundColor: theme.colors.surface,
+                borderBottomColor: theme.colors.outlineVariant
+            }]}>
                 <TouchableOpacity
-                    style={styles.backButton}
+                    style={[styles.backButton, { backgroundColor: theme.colors.surfaceVariant }]}
                     onPress={() => navigation.goBack()}
                 >
-                    <MaterialCommunityIcons name="arrow-left" size={24} color="#1F2937" />
+                    <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Tạo danh mục mới</Text>
+                <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>
+                    Tạo danh mục mới
+                </Text>
                 <View style={styles.placeholder} />
             </View>
 
@@ -62,7 +69,7 @@ const AddCategoryScreen = ({ navigation, route }) => {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
             >
-                {/* Preview Section với Gradient */}
+                {/* Preview Section - Giữ nguyên Gradient để làm điểm nhấn */}
                 <LinearGradient
                     colors={type === 'expense' ? ['#FF6B6B', '#EE5A6F'] : ['#51CF66', '#47C95E']}
                     start={{ x: 0, y: 0 }}
@@ -73,16 +80,18 @@ const AddCategoryScreen = ({ navigation, route }) => {
                     <View style={styles.previewDecor2} />
 
                     <View style={styles.previewContent}>
-                        <Text style={styles.previewLabel}>Xem trước</Text>
-                        <View style={styles.previewCard}>
+                        <Text style={[styles.previewLabel, { color: 'rgba(255,255,255,0.8)' }]}>Xem trước</Text>
+
+                        {/* Preview Card - Dùng màu surface để nó nổi lên trên nền gradient */}
+                        <View style={[styles.previewCard, { backgroundColor: theme.colors.surface }]}>
                             <View style={[styles.categoryIconWrapper, { backgroundColor: selectedColor }]}>
                                 <MaterialCommunityIcons name={selectedIcon} size={36} color="#FFFFFF" />
                             </View>
-                            <Text style={styles.previewName}>
+                            <Text style={[styles.previewName, { color: theme.colors.onSurface }]}>
                                 {name || "Tên danh mục"}
                             </Text>
-                            <View style={styles.previewBadge}>
-                                <Text style={styles.previewType}>
+                            <View style={[styles.previewBadge, { backgroundColor: theme.colors.secondaryContainer }]}>
+                                <Text style={[styles.previewType, { color: theme.colors.onSecondaryContainer }]}>
                                     {type === 'expense' ? 'Khoản chi' : 'Khoản thu'}
                                 </Text>
                             </View>
@@ -91,50 +100,64 @@ const AddCategoryScreen = ({ navigation, route }) => {
                 </LinearGradient>
 
                 {/* Form Card */}
-                <View style={styles.formCard}>
+                <View style={[styles.formCard, { backgroundColor: theme.colors.surface }]}>
                     {/* Type Switcher */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <MaterialCommunityIcons name="format-list-bulleted-type" size={20} color="#667EEA" />
-                            <Text style={styles.sectionTitle}>Loại danh mục</Text>
+                            {/* Sử dụng màu primary của theme cho icon */}
+                            <MaterialCommunityIcons name="format-list-bulleted-type" size={20} color={theme.colors.primary} />
+                            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Loại danh mục</Text>
                         </View>
 
                         <View style={styles.typeSwitcher}>
+                            {/* Nút Chi tiêu */}
                             <TouchableOpacity
                                 style={[styles.typeOption, type === 'expense' && styles.typeOptionActive]}
                                 onPress={() => setType('expense')}
                                 activeOpacity={0.8}
                             >
                                 <LinearGradient
-                                    colors={type === 'expense' ? ['#FF6B6B', '#EE5A6F'] : ['#F1F5F9', '#F1F5F9']}
+                                    // Khi không được chọn, dùng surfaceVariant thay cho màu xám trắng cũ
+                                    colors={type === 'expense'
+                                        ? ['#FF6B6B', '#EE5A6F']
+                                        : [theme.colors.surfaceVariant, theme.colors.surfaceVariant]}
                                     style={styles.typeGradient}
                                 >
                                     <MaterialCommunityIcons
                                         name="arrow-up-circle-outline"
                                         size={22}
-                                        color={type === 'expense' ? '#FFFFFF' : '#64748B'}
+                                        color={type === 'expense' ? '#FFFFFF' : theme.colors.onSurfaceVariant}
                                     />
-                                    <Text style={[styles.typeText, type === 'expense' && styles.typeTextActive]}>
+                                    <Text style={[
+                                        styles.typeText,
+                                        { color: type === 'expense' ? '#FFFFFF' : theme.colors.onSurfaceVariant }
+                                    ]}>
                                         Chi tiêu
                                     </Text>
                                 </LinearGradient>
                             </TouchableOpacity>
 
+                            {/* Nút Thu nhập */}
                             <TouchableOpacity
                                 style={[styles.typeOption, type === 'income' && styles.typeOptionActive]}
                                 onPress={() => setType('income')}
                                 activeOpacity={0.8}
                             >
                                 <LinearGradient
-                                    colors={type === 'income' ? ['#51CF66', '#47C95E'] : ['#F1F5F9', '#F1F5F9']}
+                                    colors={type === 'income'
+                                        ? ['#51CF66', '#47C95E']
+                                        : [theme.colors.surfaceVariant, theme.colors.surfaceVariant]}
                                     style={styles.typeGradient}
                                 >
                                     <MaterialCommunityIcons
                                         name="arrow-down-circle-outline"
                                         size={22}
-                                        color={type === 'income' ? '#FFFFFF' : '#64748B'}
+                                        color={type === 'income' ? '#FFFFFF' : theme.colors.onSurfaceVariant}
                                     />
-                                    <Text style={[styles.typeText, type === 'income' && styles.typeTextActive]}>
+                                    <Text style={[
+                                        styles.typeText,
+                                        { color: type === 'income' ? '#FFFFFF' : theme.colors.onSurfaceVariant }
+                                    ]}>
                                         Thu nhập
                                     </Text>
                                 </LinearGradient>
@@ -144,34 +167,46 @@ const AddCategoryScreen = ({ navigation, route }) => {
 
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <MaterialCommunityIcons name="format-title" size={20} color="#667EEA" />
-                            <Text style={styles.sectionTitle}>Tên danh mục</Text>
+                            {/* Icon tiêu đề dùng màu Primary của hệ thống */}
+                            <MaterialCommunityIcons name="format-title" size={20} color={theme.colors.primary} />
+                            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Tên danh mục</Text>
                         </View>
 
                         <View style={[
                             styles.inputWrapper,
-                            isNameFocused && styles.inputWrapperFocused
+                            {
+                                backgroundColor: theme.colors.surfaceVariant, // Màu nền nhẹ cho ô nhập
+                                borderColor: theme.colors.outlineVariant     // Viền mờ
+                            },
+                            // Khi nhấn vào ô, viền sẽ sáng lên màu Primary và nền đổi sang Surface tinh tế
+                            isNameFocused && {
+                                borderColor: theme.colors.primary,
+                                backgroundColor: theme.colors.surface
+                            }
                         ]}>
-                            <MaterialCommunityIcons name="text" size={20} color="#9CA3AF" />
+                            <MaterialCommunityIcons name="text" size={20} color={theme.colors.onSurfaceVariant} />
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, { color: theme.colors.onSurface }]}
                                 placeholder="Nhập tên danh mục..."
-                                placeholderTextColor="#CBD5E0"
+                                placeholderTextColor={theme.colors.outline} // Màu placeholder chuẩn
                                 value={name}
                                 onChangeText={setName}
                                 maxLength={20}
                                 onFocus={() => setIsNameFocused(true)}
                                 onBlur={() => setIsNameFocused(false)}
                             />
-                            <Text style={styles.charCount}>{name.length}/20</Text>
+                            <Text style={[styles.charCount, { color: theme.colors.onSurfaceVariant }]}>
+                                {name.length}/20
+                            </Text>
                         </View>
                     </View>
 
                     {/* Icon Selection */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <MaterialCommunityIcons name="emoticon-outline" size={20} color="#667EEA" />
-                            <Text style={styles.sectionTitle}>Chọn biểu tượng</Text>
+                            {/* Dùng màu primary của theme cho đồng bộ */}
+                            <MaterialCommunityIcons name="emoticon-outline" size={20} color={theme.colors.primary} />
+                            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Chọn biểu tượng</Text>
                         </View>
 
                         <View style={styles.iconGrid}>
@@ -183,10 +218,15 @@ const AddCategoryScreen = ({ navigation, route }) => {
                                         onPress={() => setSelectedIcon(icon)}
                                         style={[
                                             styles.iconBox,
+                                            // Nền và viền thay đổi theo theme
+                                            {
+                                                backgroundColor: theme.colors.surfaceVariant,
+                                                borderColor: theme.colors.outlineVariant
+                                            },
                                             isSelected && {
                                                 borderColor: selectedColor,
-                                                backgroundColor: selectedColor + '15',
-                                                elevation: 3,
+                                                backgroundColor: selectedColor + '20', // Tăng độ đậm một chút ở dark mode (20 thay vì 15)
+                                                elevation: 4,
                                             }
                                         ]}
                                         activeOpacity={0.7}
@@ -194,7 +234,8 @@ const AddCategoryScreen = ({ navigation, route }) => {
                                         <MaterialCommunityIcons
                                             name={icon}
                                             size={24}
-                                            color={isSelected ? selectedColor : '#9CA3AF'}
+                                            // Icon khi không chọn sẽ dùng màu onSurfaceVariant
+                                            color={isSelected ? selectedColor : theme.colors.onSurfaceVariant}
                                         />
                                         {isSelected && (
                                             <View style={[styles.iconCheck, { backgroundColor: selectedColor }]}>
@@ -206,12 +247,11 @@ const AddCategoryScreen = ({ navigation, route }) => {
                             })}
                         </View>
                     </View>
-
                     {/* Color Selection */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <MaterialCommunityIcons name="palette-outline" size={20} color="#667EEA" />
-                            <Text style={styles.sectionTitle}>Chọn màu sắc</Text>
+                            <MaterialCommunityIcons name="palette-outline" size={20} color={theme.colors.primary} />
+                            <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Chọn màu sắc</Text>
                         </View>
 
                         <View style={styles.colorGrid}>
@@ -227,7 +267,11 @@ const AddCategoryScreen = ({ navigation, route }) => {
                                         <View style={[
                                             styles.colorCircle,
                                             { backgroundColor: color },
-                                            isSelected && styles.colorSelected
+                                            // Khi chọn, viền trắng sẽ nổi bật trên nền tối
+                                            isSelected && {
+                                                borderColor: theme.colors.onSurface,
+                                                transform: [{ scale: 1.15 }]
+                                            }
                                         ]}>
                                             {isSelected && (
                                                 <MaterialCommunityIcons name="check" size={18} color="#FFF" />
@@ -241,11 +285,16 @@ const AddCategoryScreen = ({ navigation, route }) => {
 
                     {/* Save Button */}
                     <TouchableOpacity
-                        style={styles.saveButton}
-                        onPress={handleSave}
                         activeOpacity={0.85}
+                        // Cập nhật shadowColor theo màu đang chọn để tạo hiệu ứng phát sáng (Glow)
+                        style={[
+                            styles.saveButton,
+                            { shadowColor: selectedColor, elevation: isDarkMode ? 8 : 4 }
+                        ]}
+                        onPress={handleSave}
                     >
                         <LinearGradient
+                            // Sử dụng selectedColor làm gốc, phối với một tông đậm hơn chút (DD)
                             colors={[selectedColor, selectedColor + 'DD']}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}

@@ -20,7 +20,7 @@ import SummaryCard from '../components/Dashboard/SummaryCard';
 import TransactionItem from '../components/Dashboard/TransactionItem';
 import { CATEGORY_CONFIG } from '../constants/categories';
 import * as ImagePicker from 'expo-image-picker'
-//5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25 SHA1
+import { useTheme } from 'react-native-paper';
 const { width } = Dimensions.get('window');
 
 
@@ -59,6 +59,7 @@ const getPeriodRange = (period, anchorDate) => {
 
 
 const Dashboard = ({ navigation }) => {
+    const theme = useTheme();
     const [selectedPeriod, setSelectedPeriod] = useState('month');
     const [transactions, setTransactions] = useState([]);
     const [totalBalance, setTotalBalance] = useState(0);
@@ -204,11 +205,18 @@ const Dashboard = ({ navigation }) => {
 
     return (
 
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <StatusBar barStyle="dark-content" />
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+            <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} />
 
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[
+                styles.header,
+                {
+                    backgroundColor: theme.colors.surface,
+                    borderBottomColor: theme.colors.outlineVariant,
+                    borderBottomWidth: 1
+                }
+            ]}>
                 <View style={styles.headerInfo}>
                     <LinearGradient
                         colors={['#3B82F6', '#4F46E5']}
@@ -216,73 +224,109 @@ const Dashboard = ({ navigation }) => {
                     >
                         <MaterialCommunityIcons name="wallet" size={24} color="white" />
                     </LinearGradient>
+
                     <View>
-                        <Text style={styles.headerTitle}>Money Manager</Text>
-                        <Text style={styles.headerSub}>Chào buổi sáng! 👋</Text>
+                        {/* Tiêu đề chính - Tự động Trắng <-> Đen */}
+                        <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>
+                            Money Manager
+                        </Text>
+                        {/* Tiêu đề phụ - Màu xám nhẹ hoặc trắng mờ */}
+                        <Text style={[styles.headerSub, { color: theme.colors.onSurfaceVariant }]}>
+                            Chào buổi sáng! 👋
+                        </Text>
                     </View>
                 </View>
-                <TouchableOpacity style={styles.chartButton}>
-                    <MaterialCommunityIcons name="chart-pie" size={22} color="#4B5563" />
+
+                <TouchableOpacity style={[
+                    styles.chartButton,
+                    { backgroundColor: theme.colors.surfaceVariant }
+                ]}>
+                    <MaterialCommunityIcons
+                        name="chart-pie"
+                        size={22}
+                        color={theme.colors.primary}
+                    />
                 </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollBody}>
-
-                <SummaryCard totalBalance={totalBalance}
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[styles.scrollBody, { backgroundColor: theme.colors.background }]}
+            >
+                {/* 1. Thẻ Tóm tắt - Nên đảm bảo SummaryCard bên trong cũng dùng useTheme */}
+                <SummaryCard
+                    totalBalance={totalBalance}
                     income={income}
                     expense={expense}
                     selectedPeriod={selectedPeriod}
                     onPeriodChange={setSelectedPeriod}
-                    formatCurrency={formatCurrency} />
-                <View style={styles.dateNavigation}>
+                    formatCurrency={formatCurrency}
+                />
 
-                    <TouchableOpacity onPress={() => changePeriod('prev')} style={styles.navBtn}>
-                        <MaterialCommunityIcons name="chevron-left" size={28} color="#3B82F6" />
+                {/* 2. Điều hướng thời gian */}
+                <View style={styles.dateNavigation}>
+                    <TouchableOpacity
+                        onPress={() => changePeriod('prev')}
+                        style={[styles.navBtn, { backgroundColor: theme.colors.surface }]}
+                    >
+                        <MaterialCommunityIcons name="chevron-left" size={28} color={theme.colors.primary} />
                     </TouchableOpacity>
 
-                    <View style={styles.dateLabelContainer}>
-                        <MaterialCommunityIcons name="calendar-month-outline" size={18} color="rgba(27, 142, 187, 0.7)" />
-                        <Text style={styles.dateLabel}>{formatPeriodLabel(currentDate, selectedPeriod)}</Text>
+                    <View style={[styles.dateLabelContainer, { backgroundColor: theme.colors.primaryContainer }]}>
+                        <MaterialCommunityIcons name="calendar-month-outline" size={18} color={theme.colors.primary} />
+                        <Text style={[styles.dateLabel, { color: theme.colors.primary }]}>
+                            {formatPeriodLabel(currentDate, selectedPeriod)}
+                        </Text>
                     </View>
 
-                    <TouchableOpacity onPress={() => changePeriod('next')} style={styles.navBtn}>
-                        <MaterialCommunityIcons name="chevron-right" size={28} color="#3B82F6" />
+                    <TouchableOpacity
+                        onPress={() => changePeriod('next')}
+                        style={[styles.navBtn, { backgroundColor: theme.colors.surface }]}
+                    >
+                        <MaterialCommunityIcons name="chevron-right" size={28} color={theme.colors.primary} />
                     </TouchableOpacity>
                 </View>
 
-                {/* Quick Actions */}
+                {/* 3. Thao tác nhanh (Quick Actions) */}
                 <View style={styles.actionRow}>
-                    <TouchableOpacity style={styles.scanBtn} activeOpacity={0.8} onPress={handleScanPress}>
+                    <TouchableOpacity
+                        style={[styles.scanBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant, borderWidth: 1 }]}
+                        activeOpacity={0.8}
+                        onPress={handleScanPress}
+                    >
                         <LinearGradient colors={['#3B82F6', '#4F46E5']} style={styles.actionIcon}>
                             <MaterialCommunityIcons name="camera" size={28} color="white" />
                         </LinearGradient>
                         <View style={styles.actionTextContent}>
-                            <Text style={styles.actionTitle}>Quét hóa đơn</Text>
-                            <Text style={styles.actionSub}>AI tự động nhận diện</Text>
+                            <Text style={[styles.actionTitle, { color: theme.colors.onSurface }]}>Quét hóa đơn</Text>
+                            <Text style={[styles.actionSub, { color: theme.colors.onSurfaceVariant }]}>AI tự động nhận diện</Text>
                         </View>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.addBtn} activeOpacity={0.8}
+                    <TouchableOpacity
+                        style={[styles.addBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant, borderWidth: 1 }]}
+                        activeOpacity={0.8}
                         onPress={() => navigation.navigate('AddTransaction')}
                     >
                         <LinearGradient colors={['#A855F7', '#EC4899']} style={styles.actionIconSmall}>
                             <MaterialCommunityIcons name="plus" size={28} color="white" />
                         </LinearGradient>
-                        <Text style={styles.addBtnText}>Nhập tay</Text>
+                        <Text style={[styles.addBtnText, { color: theme.colors.onSurfaceVariant }]}>Nhập tay</Text>
                     </TouchableOpacity>
                 </View>
 
+                {/* 4. Danh sách giao dịch gần đây */}
                 <View style={styles.listContainer}>
                     <View style={styles.listHeader}>
-                        <Text style={styles.listTitle}>Giao dịch gần đây</Text>
+                        <Text style={[styles.listTitle, { color: theme.colors.onSurface }]}>Giao dịch gần đây</Text>
                         <TouchableOpacity>
-                            <Text style={styles.seeAllText}>Xem tất cả →</Text>
+                            <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>Xem tất cả →</Text>
                         </TouchableOpacity>
                     </View>
 
                     <View style={styles.transactionList}>
                         {transactions.length === 0 ? (
-                            <Text style={{ textAlign: 'center', padding: 20, color: '#94A3B8' }}>
+                            <Text style={{ textAlign: 'center', padding: 20, color: theme.colors.outline }}>
                                 Chưa có giao dịch nào
                             </Text>
                         ) : (
@@ -293,6 +337,7 @@ const Dashboard = ({ navigation }) => {
                                     formatCurrency={formatCurrency}
                                     onPress={() => navigation.navigate('AddTransaction', { transaction: item })}
                                     onLongPress={() => confirmDelete(item.id)}
+                                // Lưu ý: Đảm bảo TransactionItem bên trong cũng sử dụng theme
                                 />
                             ))
                         )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity,
     ScrollView, Alert, Animated
@@ -11,6 +11,9 @@ import { doc, getDoc, collection, query, where, onSnapshot, deleteDoc } from 'fi
 import { auth, db } from '../services/firebaseConfig';
 import { CATEGORY_CONFIG } from '../constants/categories';
 import DatePickerSection from '../components/AddTransaction.js/DatePickerSection';
+import { ThemeContext } from '../context/ThemeContext';
+import { useTheme } from 'react-native-paper';
+
 // import { setSelectedLog } from 'react-native/types_generated/Libraries/LogBox/Data/LogBoxData';
 
 const formatNumberOnly = (value, currencyCode) => {
@@ -26,6 +29,7 @@ const formatNumberOnly = (value, currencyCode) => {
 
 
 const AddTransactionScreen = ({ navigation, route }) => {
+    const theme = useTheme();
     const editData = route.params?.transaction;
     const [amount, setAmount] = useState(editData ? editData.amount.toString() : '');
     const [type, setType] = useState(editData ? editData.type : 'expense');
@@ -148,27 +152,28 @@ const AddTransactionScreen = ({ navigation, route }) => {
     const selectedCategoryData = getCurrentCategories().find(c => c.name === category);
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
             {/* Header */}
-            <View style={styles.header}>
+            <View style={[styles.header, {
+                backgroundColor: theme.colors.surface,
+                borderBottomColor: theme.colors.outlineVariant
+            }]}>
                 <TouchableOpacity
-                    style={styles.backButton}
+                    style={[styles.backButton, { backgroundColor: theme.colors.surfaceVariant }]}
                     onPress={() => navigation.goBack()}
                 >
-                    <MaterialCommunityIcons name="arrow-left" size={24} color="#1F2937" />
+                    <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
                 </TouchableOpacity>
-                <Text>{editData ? "Chỉnh sửa giao dịch" : "Thêm giao dịch"}</Text>
+                <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>
+                    {editData ? "Chỉnh sửa giao dịch" : "Thêm giao dịch"}
+                </Text>
                 <View style={styles.placeholder} />
             </View>
 
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                {/* Amount Card - Giữ nguyên Gradient vì nó đã nổi bật */}
                 <LinearGradient
                     colors={type === 'expense' ? ['#FF6B6B', '#EE5A6F'] : ['#51CF66', '#47C95E']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
                     style={styles.amountCard}
                 >
                     <View style={styles.amountCardDecor1} />
@@ -197,8 +202,6 @@ const AddTransactionScreen = ({ navigation, route }) => {
                                 value={formatNumberOnly(amount, currency)}
                                 onChangeText={(text) => setAmount(text.replace(/\D/g, ''))}
                                 placeholderTextColor="rgba(255,255,255,0.5)"
-                                onFocus={() => setIsAmountFocused(true)}
-                                onBlur={() => setIsAmountFocused(false)}
                             />
                         </View>
                     </View>
@@ -206,6 +209,7 @@ const AddTransactionScreen = ({ navigation, route }) => {
 
                 {/* Type Switcher */}
                 <View style={styles.typeSwitcher}>
+                    {/* Nút Chi tiêu */}
                     <TouchableOpacity
                         style={[styles.typeOption, type === 'expense' && styles.typeOptionActive]}
                         onPress={() => {
@@ -215,20 +219,28 @@ const AddTransactionScreen = ({ navigation, route }) => {
                         activeOpacity={0.8}
                     >
                         <LinearGradient
-                            colors={type === 'expense' ? ['#FF6B6B', '#EE5A6F'] : ['#F1F5F9', '#F1F5F9']}
+                            // Khi không chọn: dùng màu surfaceVariant của theme thay vì #F1F5F9
+                            colors={type === 'expense'
+                                ? ['#FF6B6B', '#EE5A6F']
+                                : [theme.colors.surfaceVariant, theme.colors.surfaceVariant]}
                             style={styles.typeGradient}
                         >
                             <MaterialCommunityIcons
                                 name="arrow-up-circle-outline"
                                 size={22}
-                                color={type === 'expense' ? '#FFFFFF' : '#64748B'}
+                                // Khi không chọn: dùng màu onSurfaceVariant thay vì #64748B
+                                color={type === 'expense' ? '#FFFFFF' : theme.colors.onSurfaceVariant}
                             />
-                            <Text style={[styles.typeText, type === 'expense' && styles.typeTextActive]}>
+                            <Text style={[
+                                styles.typeText,
+                                { color: type === 'expense' ? '#FFFFFF' : theme.colors.onSurfaceVariant }
+                            ]}>
                                 Chi tiêu
                             </Text>
                         </LinearGradient>
                     </TouchableOpacity>
 
+                    {/* Nút Thu nhập */}
                     <TouchableOpacity
                         style={[styles.typeOption, type === 'income' && styles.typeOptionActive]}
                         onPress={() => {
@@ -238,15 +250,21 @@ const AddTransactionScreen = ({ navigation, route }) => {
                         activeOpacity={0.8}
                     >
                         <LinearGradient
-                            colors={type === 'income' ? ['#51CF66', '#47C95E'] : ['#F1F5F9', '#F1F5F9']}
+                            // Tương tự cho nút Thu nhập
+                            colors={type === 'income'
+                                ? ['#51CF66', '#47C95E']
+                                : [theme.colors.surfaceVariant, theme.colors.surfaceVariant]}
                             style={styles.typeGradient}
                         >
                             <MaterialCommunityIcons
                                 name="arrow-down-circle-outline"
                                 size={22}
-                                color={type === 'income' ? '#FFFFFF' : '#64748B'}
+                                color={type === 'income' ? '#FFFFFF' : theme.colors.onSurfaceVariant}
                             />
-                            <Text style={[styles.typeText, type === 'income' && styles.typeTextActive]}>
+                            <Text style={[
+                                styles.typeText,
+                                { color: type === 'income' ? '#FFFFFF' : theme.colors.onSurfaceVariant }
+                            ]}>
                                 Thu nhập
                             </Text>
                         </LinearGradient>
@@ -256,21 +274,28 @@ const AddTransactionScreen = ({ navigation, route }) => {
                 {/* Category Section */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <MaterialCommunityIcons name="shape" size={20} color="#667EEA" />
-                        <Text style={styles.sectionTitle}>Chọn danh mục</Text>
+                        {/* Dùng màu primary của theme cho icon tiêu đề */}
+                        <MaterialCommunityIcons name="shape" size={20} color={theme.colors.primary} />
+                        <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Chọn danh mục</Text>
                     </View>
 
                     <View style={styles.categoryGrid}>
-                        {/* {getCurrentCategories().map((item) => { */}
                         {getDisplayCategories().map((item) => {
-
                             const isSelected = category === item.name;
                             return (
                                 <TouchableOpacity
                                     key={item.name}
                                     style={[
                                         styles.categoryItem,
-                                        isSelected && styles.categoryItemSelected
+                                        // Nền và viền thay đổi theo theme
+                                        {
+                                            backgroundColor: theme.colors.surface,
+                                            borderColor: theme.colors.outlineVariant
+                                        },
+                                        isSelected && {
+                                            borderColor: theme.colors.primary,
+                                            backgroundColor: theme.colors.primaryContainer // Màu nền nhẹ khi chọn
+                                        }
                                     ]}
                                     onPress={() => setCategory(item.name)}
                                     activeOpacity={0.7}
@@ -278,7 +303,7 @@ const AddTransactionScreen = ({ navigation, route }) => {
                                 >
                                     <View style={[
                                         styles.categoryIconWrapper,
-                                        { backgroundColor: item.color + '15' },
+                                        { backgroundColor: item.color + '15' }, // Giữ độ trong suốt của màu icon
                                         isSelected && { backgroundColor: item.color }
                                     ]}>
                                         <MaterialCommunityIcons
@@ -287,28 +312,40 @@ const AddTransactionScreen = ({ navigation, route }) => {
                                             color={isSelected ? '#FFFFFF' : item.color}
                                         />
                                     </View>
+
                                     <Text style={[
                                         styles.categoryName,
-                                        isSelected && styles.categoryNameSelected
+                                        { color: theme.colors.onSurfaceVariant }, // Màu chữ phụ
+                                        isSelected && { color: theme.colors.primary, fontWeight: 'bold' }
                                     ]}>
                                         {item.name}
                                     </Text>
+
                                     {isSelected && (
-                                        <View style={styles.checkMark}>
+                                        <View style={[styles.checkMark, { backgroundColor: theme.colors.primary }]}>
                                             <MaterialCommunityIcons name="check" size={12} color="#FFFFFF" />
                                         </View>
                                     )}
                                 </TouchableOpacity>
                             );
                         })}
+
+                        {/* Nút "Thêm mới" danh mục */}
                         <TouchableOpacity
-                            style={[styles.categoryItem, { borderStyle: 'dashed', borderColor: '#CBD5E0' }]}
+                            style={[
+                                styles.categoryItem,
+                                {
+                                    borderStyle: 'dashed',
+                                    borderColor: theme.colors.outline,
+                                    backgroundColor: theme.colors.surfaceVariant
+                                }
+                            ]}
                             onPress={() => navigation.navigate('AddCategories', { type: type })}
                         >
-                            <View style={[styles.categoryIconWrapper, { backgroundColor: '#F1F5F9' }]}>
-                                <MaterialCommunityIcons name="plus" size={24} color="#64748B" />
+                            <View style={[styles.categoryIconWrapper, { backgroundColor: theme.colors.elevation.level2 }]}>
+                                <MaterialCommunityIcons name="plus" size={24} color={theme.colors.onSurfaceVariant} />
                             </View>
-                            <Text style={styles.categoryName}>Thêm mới</Text>
+                            <Text style={[styles.categoryName, { color: theme.colors.onSurfaceVariant }]}>Thêm mới</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -316,19 +353,25 @@ const AddTransactionScreen = ({ navigation, route }) => {
                     date={date}
                     onDateChange={setDate}
                 />
+
                 {/* Note Section */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <MaterialCommunityIcons name="note-text" size={20} color="#667EEA" />
-                        <Text style={styles.sectionTitle}>Ghi chú</Text>
+                        {/* Màu icon và tiêu đề theo theme */}
+                        <MaterialCommunityIcons name="note-text" size={20} color={theme.colors.primary} />
+                        <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Ghi chú</Text>
                     </View>
 
-                    <View style={styles.noteCard}>
-                        <MaterialCommunityIcons name="pencil-outline" size={20} color="#9CA3AF" />
+                    <View style={[styles.noteCard, {
+                        backgroundColor: theme.colors.surface,
+                        borderColor: theme.colors.outlineVariant
+                    }]}>
+                        <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.colors.onSurfaceVariant} />
                         <TextInput
-                            style={styles.noteInput}
+                            style={[styles.noteInput, { color: theme.colors.onSurface }]}
                             placeholder="Thêm ghi chú cho giao dịch này..."
-                            placeholderTextColor="#CBD5E0"
+                            // Placeholder tự đổi màu xám nhẹ trong Dark Mode
+                            placeholderTextColor={theme.colors.onSurfaceVariant + '80'}
                             value={note}
                             onChangeText={setNote}
                             multiline
@@ -339,11 +382,12 @@ const AddTransactionScreen = ({ navigation, route }) => {
                 {/* Save Button */}
                 <TouchableOpacity
                     activeOpacity={0.85}
-                    style={styles.saveButton}
+                    style={[styles.saveButton, { shadowColor: theme.colors.primary }]}
                     onPress={handleSave}
                 >
                     <LinearGradient
-                        colors={['#667EEA', '#764BA2']}
+                        // Dùng bảng màu Primary của hệ thống để nút Lưu luôn đồng bộ
+                        colors={[theme.colors.primary, theme.colors.secondary]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.saveGradient}
