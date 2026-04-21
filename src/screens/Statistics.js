@@ -13,7 +13,8 @@ import { PieChart } from 'react-native-chart-kit';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../services/firebaseConfig';
 import { Timestamp } from 'firebase/firestore';
-
+import { ThemeContext } from '../context/ThemeContext';
+import { useTheme } from 'react-native-paper';
 const { width } = Dimensions.get('window');
 
 // ── Palette (Light) ───────────────────────────────────
@@ -86,6 +87,7 @@ const FadeIn = ({ delay = 0, children, style }) => {
 const LegendItem = ({ item, total, index }) => {
     const pct = total > 0 ? ((item.amount / total) * 100).toFixed(1) : 0;
     const barAnim = useRef(new Animated.Value(0)).current;
+    const theme = useTheme();
 
     useEffect(() => {
         Animated.timing(barAnim, {
@@ -99,10 +101,12 @@ const LegendItem = ({ item, total, index }) => {
     return (
         <FadeIn delay={150 + index * 70}>
             <View style={styles.legendRow}>
-                <View style={[styles.legendColorBar, { backgroundColor: item.color }]} />
+                <View style={[styles.legendColorBar, { borderBottomColor: theme.colors.outlineVariant }]} />
                 <View style={{ flex: 1 }}>
                     <View style={styles.legendMeta}>
-                        <Text style={styles.legendName}>{item.name}</Text>
+                        <Text style={[styles.legendName, { color: theme.colors.onSurface }]}>
+                            {item.name}
+                        </Text>
                         <Text style={styles.legendAmount}>{formatVND(item.amount)}đ</Text>
                     </View>
                     <View style={styles.trackBg}>
@@ -149,11 +153,23 @@ const Skeleton = ({ w, h, radius = 8, mb = 0 }) => {
 
 // ── Main Screen ───────────────────────────────────────
 const StatisticsScreen = ({ navigation }) => {
+    const theme = useTheme();
+
     const [loading, setLoading] = useState(true);
     const [chartData, setChartData] = useState([]);
     const [filter, setFilter] = useState('month');
     const user = auth.currentUser;
 
+    const colors = {
+        bg: theme.colors.background,
+        surface: theme.colors.surface,
+        text: theme.colors.onSurface,
+        sub: theme.colors.onSurfaceVariant,
+        border: theme.colors.outlineVariant,
+        accent: theme.colors.primary,
+        // Giữ các màu chart làm điểm nhấn, nhưng có thể điều chỉnh độ sáng nếu muốn
+        chartColors: ['#3B6FF0', '#10B981', '#F472B6', '#F59E0B', '#8B5CF6', '#FB923C'],
+    };
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
@@ -211,32 +227,40 @@ const StatisticsScreen = ({ navigation }) => {
     const top = sorted[0] || null;
 
     return (
-        <SafeAreaView style={styles.safe}>
-            <View style={styles.tabFilter}>
+        <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
+            {/* ── Filter Bar ── */}
+            <View style={[styles.tabFilter, { backgroundColor: theme.colors.surfaceVariant }]}>
                 {['month', 'quarter', 'year'].map((item) => (
                     <TouchableOpacity
                         key={item}
                         onPress={() => setFilter(item)}
-                        style={[styles.tabBtn, filter === item && styles.tabBtnActive]}
+                        style={[
+                            styles.tabBtn,
+                            filter === item && { backgroundColor: theme.colors.elevation.level3, elevation: 2 }
+                        ]}
                     >
-                        <Text style={[styles.tabText, filter === item && styles.tabTextActive]}>
+                        <Text style={[
+                            styles.tabText,
+                            { color: filter === item ? theme.colors.primary : theme.colors.onSurfaceVariant }
+                        ]}>
                             {item === 'month' ? 'Tháng' : item === 'quarter' ? 'Quý' : 'Năm'}
                         </Text>
                     </TouchableOpacity>
                 ))}
             </View>
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scroll}
-            >
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+
                 {/* ── Header ── */}
                 <FadeIn delay={0}>
                     <View style={styles.header}>
                         <View>
-                            <Text style={styles.headerEyebrow}>{filter === 'month' ? 'THÁNG NÀY' : 'QUÝ NÀY'}</Text>
-                            <Text style={styles.headerTitle}>Phân tích{'\n'}chi tiêu</Text>
+                            <Text style={[styles.headerEyebrow, { color: colors.sub }]}>
+                                {filter === 'month' ? 'THÁNG NÀY' : filter === 'quarter' ? 'QUÝ NÀY' : 'NĂM NAY'}
+                            </Text>
+                            <Text style={[styles.headerTitle, { color: colors.text }]}>Phân tích{'\n'}chi tiêu</Text>
                         </View>
-                        <View style={styles.headerIconBox}>
+                        <View style={[styles.headerIconBox, { backgroundColor: theme.colors.primaryContainer, borderColor: theme.colors.primary }]}>
                             <Text style={{ fontSize: 28 }}>📊</Text>
                         </View>
                     </View>
@@ -244,21 +268,17 @@ const StatisticsScreen = ({ navigation }) => {
 
                 {loading ? (
                     <View style={{ gap: 16 }}>
-                        <View style={styles.card}>
+                        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                             <Skeleton w="100%" h={200} radius={14} mb={20} />
                             <Skeleton w="70%" h={14} radius={6} mb={12} />
-                            <Skeleton w="50%" h={14} radius={6} mb={12} />
-                            <Skeleton w="60%" h={14} radius={6} />
                         </View>
                     </View>
                 ) : chartData.length === 0 ? (
                     <FadeIn delay={80}>
-                        <View style={[styles.card, styles.emptyCard]}>
+                        <View style={[styles.card, styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                             <Text style={{ fontSize: 48, marginBottom: 16 }}>🧾</Text>
-                            <Text style={styles.emptyTitle}>Chưa có dữ liệu</Text>
-                            <Text style={styles.emptySub}>
-                                Bắt đầu ghi chép chi tiêu để xem thống kê của bạn tại đây.
-                            </Text>
+                            <Text style={[styles.emptyTitle, { color: colors.text }]}>Chưa có dữ liệu</Text>
+                            <Text style={[styles.emptySub, { color: colors.sub }]}>Bắt đầu ghi chép chi tiêu để xem thống kê.</Text>
                         </View>
                     </FadeIn>
                 ) : (
@@ -266,33 +286,23 @@ const StatisticsScreen = ({ navigation }) => {
                         {/* ── Summary Row ── */}
                         <FadeIn delay={80}>
                             <View style={styles.summaryRow}>
-                                <View style={[styles.summaryCard, { backgroundColor: C.accentLight, borderColor: '#C7D7FC' }]}>
-                                    <Text style={styles.summaryLabel}>Tổng chi</Text>
-                                    <Text style={[styles.summaryValue, { color: C.accent }]}>
-                                        {formatVND(total)}đ
-                                    </Text>
+                                <View style={[styles.summaryCard, { backgroundColor: theme.colors.secondaryContainer, borderColor: theme.colors.secondary }]}>
+                                    <Text style={[styles.summaryLabel, { color: theme.colors.onSecondaryContainer }]}>Tổng chi</Text>
+                                    <Text style={[styles.summaryValue, { color: theme.colors.secondary }]}>{formatVND(total)}đ</Text>
                                 </View>
-                                <View style={[styles.summaryCard, { backgroundColor: C.redLight, borderColor: '#FCD4D4' }]}>
-                                    <Text style={styles.summaryLabel}>Nhiều nhất</Text>
-                                    <Text style={[styles.summaryValue, { color: C.red }]} numberOfLines={1}>
-                                        {top?.name ?? '—'}
-                                    </Text>
-                                </View>
-                                <View style={[styles.summaryCard, { backgroundColor: C.greenLight, borderColor: '#A7F3D0' }]}>
-                                    <Text style={styles.summaryLabel}>Danh mục</Text>
-                                    <Text style={[styles.summaryValue, { color: C.green }]}>
-                                        {chartData.length}
-                                    </Text>
+                                <View style={[styles.summaryCard, { backgroundColor: theme.colors.errorContainer, borderColor: theme.colors.error }]}>
+                                    <Text style={[styles.summaryLabel, { color: theme.colors.onErrorContainer }]}>Nhiều nhất</Text>
+                                    <Text style={[styles.summaryValue, { color: theme.colors.error }]} numberOfLines={1}>{top?.name ?? '—'}</Text>
                                 </View>
                             </View>
                         </FadeIn>
 
                         {/* ── Pie Chart Card ── */}
                         <FadeIn delay={160}>
-                            <View style={styles.card}>
+                            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                                 <View style={styles.cardHeader}>
-                                    <Text style={styles.cardTitle}>Tỷ lệ danh mục</Text>
-                                    <View style={[styles.iconPill, { backgroundColor: C.accentLight }]}>
+                                    <Text style={[styles.cardTitle, { color: colors.text }]}>Tỷ lệ danh mục</Text>
+                                    <View style={[styles.iconPill, { backgroundColor: theme.colors.tertiaryContainer }]}>
                                         <Text style={{ fontSize: 13 }}>🥧</Text>
                                     </View>
                                 </View>
@@ -301,8 +311,7 @@ const StatisticsScreen = ({ navigation }) => {
                                     width={width - 48}
                                     height={210}
                                     chartConfig={{
-                                        color: (opacity = 1) => `rgba(0,0,0,${opacity})`,
-                                        backgroundColor: 'transparent',
+                                        color: (opacity = 1) => colors.text, // Chữ trên chart theo theme
                                     }}
                                     accessor="amount"
                                     backgroundColor="transparent"
@@ -310,10 +319,10 @@ const StatisticsScreen = ({ navigation }) => {
                                     hasLegend={false}
                                     absolute
                                 />
-                                {/* Color pill legend */}
+                                {/* Legend pill list */}
                                 <View style={styles.pillLegend}>
                                     {chartData.map((d, i) => (
-                                        <View key={i} style={[styles.pillItem, { borderColor: d.color + '55', backgroundColor: d.color + '12' }]}>
+                                        <View key={i} style={[styles.pillItem, { borderColor: d.color + '77', backgroundColor: d.color + '22' }]}>
                                             <View style={[styles.pillDot, { backgroundColor: d.color }]} />
                                             <Text style={[styles.pillLabel, { color: d.color }]} numberOfLines={1}>{d.name}</Text>
                                         </View>
@@ -324,10 +333,10 @@ const StatisticsScreen = ({ navigation }) => {
 
                         {/* ── Detail Card ── */}
                         <FadeIn delay={240}>
-                            <View style={styles.card}>
+                            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                                 <View style={styles.cardHeader}>
-                                    <Text style={styles.cardTitle}>Chi tiết danh mục</Text>
-                                    <View style={[styles.iconPill, { backgroundColor: C.greenLight }]}>
+                                    <Text style={[styles.cardTitle, { color: colors.text }]}>Chi tiết danh mục</Text>
+                                    <View style={[styles.iconPill, { backgroundColor: theme.colors.secondaryContainer }]}>
                                         <Text style={{ fontSize: 13 }}>📋</Text>
                                     </View>
                                 </View>

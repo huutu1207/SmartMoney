@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { View, StyleSheet, ScrollView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { Text, List, Switch, Divider, Surface, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,7 +8,10 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { registerForPushNotificationsAsync, scheduleDailyReminder } from '../services/notificationService';
 import * as Notifications from 'expo-notifications';
+import { ThemeContext } from '../context/ThemeContext';
+
 const Settings = ({ navigation }) => {
+    
     const theme = useTheme();
     const [reminderTime, setReminderTime] = useState('20:00');
     const [currency, setCurrency] = useState('VND');
@@ -17,7 +20,7 @@ const Settings = ({ navigation }) => {
 
     const [date, setDate] = useState(new Date());
     const [showPicker, setShowPicker] = useState(false);
-
+    const { isDarkMode, toggleTheme } = useContext(ThemeContext);
     const user = auth.currentUser;
 
     // Hàm chuyển đổi string "HH:mm" thành đối tượng Date để Picker hiển thị đúng
@@ -103,48 +106,39 @@ const Settings = ({ navigation }) => {
 
     if (loading) {
         return (
-            <View style={[styles.container, { justifyContent: 'center' }]}>
-                <ActivityIndicator size="large" color="#5856D6" />
+            <View style={[styles.container, { justifyContent: 'center', backgroundColor: theme.colors.background }]}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Cài đặt</Text>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+            <View style={[styles.header, { backgroundColor: theme.colors.surface, borderBottomColor: theme.colors.outlineVariant }]}>
+                <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>Cài đặt</Text>
             </View>
 
             <ScrollView>
                 <List.Section>
-                    <List.Subheader>Thông báo & Nhắc nhở</List.Subheader>
-                    <Surface style={styles.surface} elevation={0}>
+                    <List.Subheader style={{ color: theme.colors.primary }}>Thông báo & Nhắc nhở</List.Subheader>
+                    <Surface style={[styles.surface, { backgroundColor: theme.colors.surface }]} elevation={1}>
                         <List.Item
                             title="Nhắc nhở hằng ngày"
-                            description="Nhắc tôi nhập chi tiêu vào cuối ngày"
-                            left={props => <List.Icon {...props} icon="bell-ring-outline" color="#5856D6" />}
+                            titleStyle={{ color: theme.colors.onSurface }}
+                            left={props => <List.Icon {...props} icon="bell-ring-outline" color={theme.colors.primary} />}
                             right={() => (
                                 <Switch
                                     value={isReminderEnabled}
                                     onValueChange={async (value) => {
                                         setIsReminderEnabled(value);
                                         updateSetting('isReminderEnabled', value);
-
                                         if (value) {
-                                            // Lấy giờ từ state để đặt lịch
                                             const [h, m] = reminderTime.split(':').map(Number);
                                             await scheduleDailyReminder(h, m);
-                                            Alert.alert("Thông báo", `Đã bật nhắc nhở lúc ${reminderTime}`);
                                         } else {
-                                            // Hủy tất cả nếu tắt
                                             await Notifications.cancelAllScheduledNotificationsAsync();
-                                            console.log("Đã hủy tất cả nhắc nhở");
                                         }
-                                        const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-                                        console.log("Danh sách thông báo đã đặt lịch:", scheduled.length);
                                     }}
-
-                                    color="#5856D6"
                                 />
                             )}
                         />
@@ -152,7 +146,7 @@ const Settings = ({ navigation }) => {
                         <List.Item
                             title="Thời gian nhắc"
                             description={`${reminderTime} mỗi ngày`}
-                            left={props => <List.Icon {...props} icon="clock-outline" color="#5856D6" />}
+                            left={props => <List.Icon {...props} icon="clock-outline" color={theme.colors.primary} />}
                             onPress={() => setShowPicker(true)}
                             disabled={!isReminderEnabled}
                             right={props => <List.Icon {...props} icon="chevron-right" />}
@@ -161,8 +155,18 @@ const Settings = ({ navigation }) => {
                 </List.Section>
 
                 <List.Section>
-                    <List.Subheader>Tài khoản</List.Subheader>
-                    <Surface style={styles.surface} elevation={0}>
+                    <List.Subheader style={{ color: theme.colors.primary }}>Giao diện & Tài khoản</List.Subheader>
+                    <Surface style={[styles.surface, { backgroundColor: theme.colors.surface }]} elevation={1}>
+                        {/* NÚT DARK MODE "XỊN" NHẤT Ở ĐÂY */}
+                        <List.Item
+                            title="Chế độ tối"
+                            titleStyle={{ color: theme.colors.onSurface }}
+                            left={props => <List.Icon {...props} icon="weather-night" color="#BB86FC" />}
+                            right={() => (
+                                <Switch value={isDarkMode} onValueChange={toggleTheme} />
+                            )}
+                        />
+                        <Divider />
                         <List.Item
                             title="Thông tin cá nhân"
                             left={props => <List.Icon {...props} icon="account-outline" color="#007AFF" />}
@@ -183,8 +187,8 @@ const Settings = ({ navigation }) => {
                         <Divider />
                         <List.Item
                             title="Đăng xuất"
-                            titleStyle={{ color: '#FF3B30' }}
-                            left={props => <List.Icon {...props} icon="logout" color="#FF3B30" />}
+                            titleStyle={{ color: theme.colors.error }}
+                            left={props => <List.Icon {...props} icon="logout" color={theme.colors.error} />}
                             onPress={handleLogout}
                         />
                     </Surface>
@@ -205,10 +209,10 @@ const Settings = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F2F2F7' },
-    header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
+    container: { flex: 1 },
+    header: { padding: 20, borderBottomWidth: 1 },
     headerTitle: { fontSize: 24, fontWeight: 'bold' },
-    surface: { marginHorizontal: 16, borderRadius: 12, backgroundColor: '#FFF', overflow: 'hidden' },
+    surface: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden', marginBottom: 10 },
 });
 
 export default Settings;

@@ -19,9 +19,10 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Alert } from 'react-native';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-
+import { useTheme } from 'react-native-paper';
 
 const LoginScreen = ({ navigation }) => {
+    const theme = useTheme();
     const onGoogleButtonPress = async () => {
         try {
             // Kiểm tra dịch vụ Google Play (chỉ Android)
@@ -50,7 +51,7 @@ const LoginScreen = ({ navigation }) => {
     const [showPassword, setShowPassword] = useState(false);
     const [isEmailFocused, setIsEmailFocused] = useState(false);
     const [isPasswordFocused, setIsPasswordFocused] = useState(false);
-    
+
     React.useEffect(() => {
         GoogleSignin.configure({
             webClientId: '201189817902-9mo5uip3752nfc4lcq6jv26drrd5pq48.apps.googleusercontent.com',
@@ -75,8 +76,12 @@ const LoginScreen = ({ navigation }) => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FAFBFF" />
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            {/* StatusBar: Tự động đổi màu icon Pin/Sóng sang trắng khi nền tối */}
+            <StatusBar
+                barStyle={theme.dark ? "light-content" : "dark-content"}
+                backgroundColor={theme.colors.background}
+            />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -88,17 +93,18 @@ const LoginScreen = ({ navigation }) => {
                     bounces={false}
                 >
                     {/* Decorative Background Elements */}
+                    {/* Tú giữ nguyên opacity 20 (hex) để các vòng tròn này mờ ảo trên nền tối nhé */}
                     <View style={styles.bgDecoration}>
                         <LinearGradient
-                            colors={['#667EEA20', '#764BA220']}
+                            colors={[theme.colors.primary + '20', theme.colors.tertiary + '20']}
                             style={styles.bgCircle1}
                         />
                         <LinearGradient
-                            colors={['#A855F720', '#C084FC20']}
+                            colors={[theme.colors.secondary + '20', theme.colors.primary + '20']}
                             style={styles.bgCircle2}
                         />
                         <LinearGradient
-                            colors={['#4C6EF520', '#667EEA20']}
+                            colors={[theme.colors.primary + '20', theme.colors.outline + '20']}
                             style={styles.bgCircle3}
                         />
                     </View>
@@ -107,42 +113,56 @@ const LoginScreen = ({ navigation }) => {
                     <View style={styles.topSection}>
                         <View style={styles.logoWrapper}>
                             <LinearGradient
-                                colors={['#667EEA', '#764BA2']}
+                                colors={[theme.colors.primary, theme.colors.tertiary]}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
                                 style={styles.logoOuter}
                             >
-                                <View style={styles.logoInner}>
-                                    <MaterialCommunityIcons name="wallet-outline" size={42} color="#667EEA" />
+                                {/* Phần nền trắng bên trong logo nên chuyển sang màu surface */}
+                                <View style={[styles.logoInner, { backgroundColor: theme.colors.surface }]}>
+                                    <MaterialCommunityIcons
+                                        name="wallet-outline"
+                                        size={42}
+                                        color={theme.colors.primary}
+                                    />
                                 </View>
                             </LinearGradient>
                         </View>
 
-                        <Text style={styles.welcomeTitle}>Welcome to Smart Money</Text>
-                        <Text style={styles.welcomeSubtitle}>
+                        {/* Chữ Welcome tự động đổi Trắng/Đen */}
+                        <Text style={[styles.welcomeTitle, { color: theme.colors.onSurface }]}>
+                            Welcome to Smart Money
+                        </Text>
+                        <Text style={[styles.welcomeSubtitle, { color: theme.colors.onSurfaceVariant }]}>
                             Đăng nhập để quản lý tài chính thông minh hơn
                         </Text>
                     </View>
 
                     {/* Login Form Card */}
-                    <View style={styles.formCard}>
+                    <View style={[styles.formCard, { backgroundColor: theme.colors.surface }]}>
+                        {/* Email Input Group */}
                         <View style={styles.inputGroup}>
-                            <Text style={styles.inputLabel}>Địa chỉ Email</Text>
+                            <Text style={[styles.inputLabel, { color: theme.colors.onSurface }]}>Địa chỉ Email</Text>
                             <View style={[
                                 styles.inputWrapper,
-                                isEmailFocused && styles.inputWrapperFocused
+                                {
+                                    backgroundColor: theme.colors.surfaceVariant, // Nền ô nhập mờ hơn card
+                                    borderColor: theme.colors.outlineVariant
+                                },
+                                isEmailFocused && { borderColor: theme.colors.primary } // Sáng lên khi chọn
                             ]}>
                                 <View style={styles.inputIconContainer}>
                                     <MaterialCommunityIcons
                                         name="email-outline"
                                         size={20}
-                                        color={isEmailFocused ? '#667EEA' : '#9CA3AF'}
+                                        // Đổi màu icon linh hoạt theo theme
+                                        color={isEmailFocused ? theme.colors.primary : theme.colors.onSurfaceVariant}
                                     />
                                 </View>
                                 <TextInput
-                                    style={styles.input}
+                                    style={[styles.input, { color: theme.colors.onSurface }]}
                                     placeholder="yourname@example.com"
-                                    placeholderTextColor="#CBD5E0"
+                                    placeholderTextColor={theme.colors.outline}
                                     value={email}
                                     onChangeText={setEmail}
                                     keyboardType="email-address"
@@ -152,35 +172,43 @@ const LoginScreen = ({ navigation }) => {
                                 />
                                 {email.length > 0 && (
                                     <TouchableOpacity onPress={() => setEmail('')}>
-                                        <MaterialCommunityIcons name="close-circle" size={20} color="#D1D5DB" />
+                                        <MaterialCommunityIcons
+                                            name="close-circle"
+                                            size={20}
+                                            color={theme.colors.outline}
+                                        />
                                     </TouchableOpacity>
                                 )}
                             </View>
                         </View>
 
-                        {/* Password Input */}
+                        {/* Password Input Group */}
                         <View style={styles.inputGroup}>
                             <View style={styles.labelRow}>
-                                <Text style={styles.inputLabel}>Mật khẩu</Text>
+                                <Text style={[styles.inputLabel, { color: theme.colors.onSurface }]}>Mật khẩu</Text>
                                 <TouchableOpacity>
-                                    <Text style={styles.forgotText}>Quên mật khẩu?</Text>
+                                    <Text style={[styles.forgotText, { color: theme.colors.primary }]}>Quên mật khẩu?</Text>
                                 </TouchableOpacity>
                             </View>
                             <View style={[
                                 styles.inputWrapper,
-                                isPasswordFocused && styles.inputWrapperFocused
+                                {
+                                    backgroundColor: theme.colors.surfaceVariant,
+                                    borderColor: theme.colors.outlineVariant
+                                },
+                                isPasswordFocused && { borderColor: theme.colors.primary }
                             ]}>
                                 <View style={styles.inputIconContainer}>
                                     <MaterialCommunityIcons
                                         name="lock-outline"
                                         size={20}
-                                        color={isPasswordFocused ? '#667EEA' : '#9CA3AF'}
+                                        color={isPasswordFocused ? theme.colors.primary : theme.colors.onSurfaceVariant}
                                     />
                                 </View>
                                 <TextInput
-                                    style={styles.input}
+                                    style={[styles.input, { color: theme.colors.onSurface }]}
                                     placeholder="Nhập mật khẩu của bạn"
-                                    placeholderTextColor="#CBD5E0"
+                                    placeholderTextColor={theme.colors.outline}
                                     value={password}
                                     onChangeText={setPassword}
                                     secureTextEntry={!showPassword}
@@ -194,7 +222,7 @@ const LoginScreen = ({ navigation }) => {
                                     <MaterialCommunityIcons
                                         name={showPassword ? "eye-outline" : "eye-off-outline"}
                                         size={20}
-                                        color="#9CA3AF"
+                                        color={theme.colors.onSurfaceVariant}
                                     />
                                 </TouchableOpacity>
                             </View>
@@ -202,85 +230,86 @@ const LoginScreen = ({ navigation }) => {
 
                         {/* Remember Me */}
                         <TouchableOpacity style={styles.rememberRow}>
-                            <View style={styles.checkbox}>
-                                <MaterialCommunityIcons name="check" size={14} color="#667EEA" />
+                            <View style={[
+                                styles.checkbox,
+                                { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outlineVariant }
+                            ]}>
+                                {/* Hiện check icon nếu được chọn, dùng màu primary của theme */}
+                                <MaterialCommunityIcons name="check" size={14} color={theme.colors.primary} />
                             </View>
-                            <Text style={styles.rememberText}>Ghi nhớ đăng nhập</Text>
+                            <Text style={[styles.rememberText, { color: theme.colors.onSurfaceVariant }]}>
+                                Ghi nhớ đăng nhập
+                            </Text>
                         </TouchableOpacity>
 
                         {/* Login Button */}
                         <TouchableOpacity
-                            style={styles.loginButton}
+                            style={[styles.loginButton, { shadowColor: theme.colors.primary }]}
                             activeOpacity={0.85}
                             onPress={handleLogin}
                         >
                             <LinearGradient
-                                colors={['#667EEA', '#764BA2']}
+                                colors={[theme.colors.primary, theme.colors.tertiary]}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
                                 style={styles.loginGradient}
                             >
-                                <Text style={styles.loginText}>Đăng nhập</Text>
-                                <View style={styles.arrowCircle}>
-                                    <MaterialCommunityIcons name="arrow-right" size={18} color="#667EEA" />
+                                <Text style={[styles.loginText, { color: theme.colors.onPrimary }]}>Đăng nhập</Text>
+                                <View style={[styles.arrowCircle, { backgroundColor: theme.colors.surface }]}>
+                                    <MaterialCommunityIcons name="arrow-right" size={18} color={theme.colors.primary} />
                                 </View>
                             </LinearGradient>
                         </TouchableOpacity>
 
                         {/* Divider */}
                         <View style={styles.divider}>
-                            <View style={styles.dividerLine} />
-                            <Text style={styles.dividerText}>Hoặc tiếp tục với</Text>
-                            <View style={styles.dividerLine} />
+                            <View style={[styles.dividerLine, { backgroundColor: theme.colors.outlineVariant }]} />
+                            <Text style={[styles.dividerText, { color: theme.colors.outline }]}>Hoặc tiếp tục với</Text>
+                            <View style={[styles.dividerLine, { backgroundColor: theme.colors.outlineVariant }]} />
                         </View>
 
                         {/* Social Buttons */}
                         <View style={styles.socialRow}>
-                            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.8}
-                                onPress={onGoogleButtonPress}
-                            >
-                                <LinearGradient
-                                    colors={['#FFFFFF', '#F9FAFB']}
-                                    style={styles.socialGradient}
+                            {['google', 'facebook'].map((platform) => (
+                                <TouchableOpacity
+                                    key={platform}
+                                    style={[styles.socialBtn, { borderColor: theme.colors.outlineVariant, borderWidth: 1 }]}
+                                    activeOpacity={0.8}
+                                    onPress={platform === 'google' ? onGoogleButtonPress : undefined}
                                 >
-                                    <View style={styles.socialIconWrapper}>
-                                        <MaterialCommunityIcons name="google" size={22} color="#DB4437" />
-                                    </View>
-                                    <Text style={styles.socialText}>Google</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.8}>
-                                <LinearGradient
-                                    colors={['#FFFFFF', '#F9FAFB']}
-                                    style={styles.socialGradient}
-                                >
-                                    <View style={styles.socialIconWrapper}>
-                                        <MaterialCommunityIcons name="facebook" size={22} color="#1877F2" />
-                                    </View>
-                                    <Text style={styles.socialText}>Facebook</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-
-
+                                    <LinearGradient
+                                        // Thay vì trắng tinh, dùng surface để đồng bộ với dark mode
+                                        colors={[theme.colors.surface, theme.colors.surfaceVariant]}
+                                        style={styles.socialGradient}
+                                    >
+                                        <View style={styles.socialIconWrapper}>
+                                            <MaterialCommunityIcons
+                                                name={platform}
+                                                size={22}
+                                                color={platform === 'google' ? '#DB4437' : '#1877F2'}
+                                            />
+                                        </View>
+                                        <Text style={[styles.socialText, { color: theme.colors.onSurface }]}>
+                                            {platform === 'google' ? 'Google' : 'Facebook'}
+                                        </Text>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            ))}
                         </View>
                     </View>
 
-                    {/* Sign Up Link */}
                     <View style={styles.signUpSection}>
-                        <Text style={styles.signUpQuestion}>Chưa có tài khoản? </Text>
-                        <TouchableOpacity
-                            onPress={() => navigation.navigate('Register')}
-                        >
+                        <Text style={[styles.signUpQuestion, { color: theme.colors.onSurfaceVariant }]}>
+                            Chưa có tài khoản?{' '}
+                        </Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
                             <LinearGradient
-                                colors={['#667EEA', '#764BA2']}
+                                colors={[theme.colors.primary, theme.colors.tertiary]}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.signUpGradient}
                             >
-                                <Text style={styles.signUpText}
-
-                                >Đăng ký ngay</Text>
+                                <Text style={[styles.signUpText, { color: theme.colors.onPrimary }]}>Đăng ký ngay</Text>
                             </LinearGradient>
                         </TouchableOpacity>
                     </View>
@@ -306,33 +335,35 @@ const styles = StyleSheet.create({
     },
     bgDecoration: {
         position: 'absolute',
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 0, // Đảm bảo nằm dưới cùng
     },
     bgCircle1: {
         position: 'absolute',
-        width: 300,
-        height: 300,
-        borderRadius: 150,
-        top: -100,
-        right: -80,
+        width: 350,
+        height: 350,
+        borderRadius: 175,
+        top: -120,
+        right: -100, // Dùng RIGHT và số âm để đẩy nó ra ngoài mép phải
     },
     bgCircle2: {
         position: 'absolute',
-        width: 200,
-        height: 200,
-        borderRadius: 100,
-        bottom: 100,
-        left: -60,
+        width: 220,
+        height: 220,
+        borderRadius: 110,
+        bottom: 50,
+        right: -60, // ĐỔI TỪ LEFT SANG RIGHT để nó nằm bên phải màn hình
     },
     bgCircle3: {
         position: 'absolute',
         width: 150,
         height: 150,
         borderRadius: 75,
-        top: 200,
-        left: 30,
+        top: '30%',
+        left: -40, // Giữ một cái bên trái để tạo sự so le
     },
     topSection: {
         alignItems: 'center',

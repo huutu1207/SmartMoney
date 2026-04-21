@@ -6,12 +6,13 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { useTheme } from 'react-native-paper';
 import { db, auth } from '../services/firebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const UserProfileScreen = ({ navigation }) => {
     // 1. Khai báo các State để lưu trữ thông tin
+    const theme = useTheme();
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [focusedField, setFocusedField] = useState('');
@@ -91,47 +92,62 @@ const UserProfileScreen = ({ navigation }) => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            {/* Header: Dùng màu surface để tạo khối nổi nhẹ trên nền background */}
+            <View style={[styles.header, {
+                backgroundColor: theme.colors.surface,
+                borderBottomColor: theme.colors.outlineVariant
+            }]}>
+
+                {/* Nút Back: Dùng surfaceVariant (màu xám trầm) làm nền */}
                 <TouchableOpacity
-                    style={styles.backButton}
+                    style={[styles.backButton, { backgroundColor: theme.colors.surfaceVariant }]}
                     onPress={() => navigation.goBack()}
                 >
-                    <MaterialCommunityIcons name="arrow-left" size={24} color="#1F2937" />
+                    {/* onSurface sẽ tự thành Trắng nếu là Dark Mode, Đen nếu là Light Mode */}
+                    <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.onSurface} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Thông tin cá nhân</Text>
+
+                <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>
+                    Thông tin cá nhân
+                </Text>
+
+                {/* Nút Edit: Dùng toán tử 3 ngôi cho LOGIC (Trạng thái), nhưng dùng MÀU của Theme */}
                 <TouchableOpacity
-                    style={styles.editButton}
+                    style={[styles.editButton, { backgroundColor: theme.colors.surfaceVariant }]}
                     onPress={() => setIsEditing(!isEditing)}
                 >
                     <MaterialCommunityIcons
                         name={isEditing ? "close" : "pencil"}
                         size={22}
-                        color={isEditing ? "#FF6B6B" : "#667EEA"}
+                        // Dùng error cho màu đỏ cảnh báo và primary cho màu nhấn chính của Theme
+                        color={isEditing ? theme.colors.error : theme.colors.primary}
                     />
                 </TouchableOpacity>
             </View>
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[styles.scrollContent, { backgroundColor: theme.colors.background }]}
             >
-                {/* Avatar Section */}
+                {/* Avatar Section - Tự động thích ứng màu thương hiệu */}
                 <LinearGradient
-                    colors={['#667EEA', '#764BA2']}
+                    // Thay vì dùng mã Hex, mình dùng màu Primary và Tertiary của theme
+                    colors={[theme.colors.primary, theme.colors.tertiary]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.avatarSection}
                 >
-                    <View style={styles.avatarDecor1} />
-                    <View style={styles.avatarDecor2} />
+                    {/* Các hình tròn trang trí - Dùng màu trắng mờ (onPrimary) để tự động đẹp */}
+                    <View style={[styles.avatarDecor1, { backgroundColor: theme.colors.onPrimary + '1A' }]} />
+                    <View style={[styles.avatarDecor2, { backgroundColor: theme.colors.onPrimary + '0D' }]} />
 
                     <View style={styles.avatarWrapper}>
                         <View style={styles.avatarContainer}>
                             <Image
                                 source={{ uri: avatarUrl }}
-                                style={styles.avatar}
+                                // Viền ảnh dùng màu surface để tạo cảm giác ảnh nổi lên từ Card bên dưới
+                                style={[styles.avatar, { borderColor: theme.colors.surface }]}
                             />
                             {isEditing && (
                                 <TouchableOpacity
@@ -139,39 +155,59 @@ const UserProfileScreen = ({ navigation }) => {
                                     onPress={handleChangeAvatar}
                                 >
                                     <LinearGradient
-                                        colors={['#667EEA', '#764BA2']}
+                                        colors={[theme.colors.primary, theme.colors.secondary]}
                                         style={styles.cameraGradient}
                                     >
-                                        <MaterialCommunityIcons name="camera" size={18} color="#FFF" />
+                                        {/* Biến onPrimary tự đổi Trắng/Đen để Tú không cần lo */}
+                                        <MaterialCommunityIcons name="camera" size={18} color={theme.colors.onPrimary} />
                                     </LinearGradient>
                                 </TouchableOpacity>
                             )}
                         </View>
-                        <Text style={styles.avatarName}>{fullName}</Text>
-                        <Text style={styles.avatarEmail}>{email}</Text>
+
+                        {/* Tên và Email dùng bộ màu 'on' để luôn đọc được trên nền màu đậm */}
+                        <Text style={[styles.avatarName, { color: theme.colors.onPrimary }]}>
+                            {fullName}
+                        </Text>
+                        <Text style={[styles.avatarEmail, { color: theme.colors.onPrimary + 'D9' }]}>
+                            {email}
+                        </Text>
                     </View>
                 </LinearGradient>
-
                 {/* Info Card */}
-                <View style={styles.infoCard}>
-                    {/* Full Name */}
+                <View style={[styles.infoCard, { backgroundColor: theme.colors.surface }]}>
+
+                    {/* Một mẫu Field chung (Họ và tên) - Các field khác áp dụng tương tự */}
                     <View style={styles.fieldGroup}>
                         <View style={styles.fieldLabel}>
-                            <MaterialCommunityIcons name="account" size={20} color="#667EEA" />
-                            <Text style={styles.labelText}>Họ và tên</Text>
-                            <Text style={styles.required}>*</Text>
+                            {/* Icon dùng màu nhấn chính của App */}
+                            <MaterialCommunityIcons name="account" size={20} color={theme.colors.primary} />
+                            <Text style={[styles.labelText, { color: theme.colors.onSurface }]}>Họ và tên</Text>
+                            {/* Dấu * bắt buộc dùng màu Error hệ thống */}
+                            <Text style={[styles.required, { color: theme.colors.error }]}>*</Text>
                         </View>
+
                         <View style={[
                             styles.inputWrapper,
-                            focusedField === 'fullName' && styles.inputWrapperFocused,
-                            !isEditing && styles.inputDisabled
+                            {
+                                backgroundColor: theme.colors.surfaceVariant, // Màu nền xám trầm/nhạt
+                                borderColor: theme.colors.outlineVariant      // Viền mờ đồng bộ
+                            },
+                            // Logic Focus: Tự đổi màu khi chạm vào
+                            focusedField === 'fullName' && {
+                                borderColor: theme.colors.primary,
+                                backgroundColor: theme.colors.surface
+                            },
+                            // Logic Disabled: Làm mờ đi một chút
+                            !isEditing && { opacity: 0.6 }
                         ]}>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, { color: theme.colors.onSurface }]}
                                 value={fullName}
                                 onChangeText={setFullName}
                                 placeholder="Nhập họ và tên"
-                                placeholderTextColor="#CBD5E0"
+                                // Màu placeholder cũng lấy từ theme
+                                placeholderTextColor={theme.colors.outline}
                                 editable={isEditing}
                                 onFocus={() => setFocusedField('fullName')}
                                 onBlur={() => setFocusedField('')}
@@ -182,24 +218,32 @@ const UserProfileScreen = ({ navigation }) => {
                     {/* Email */}
                     <View style={styles.fieldGroup}>
                         <View style={styles.fieldLabel}>
-                            <MaterialCommunityIcons name="email" size={20} color="#667EEA" />
-                            <Text style={styles.labelText}>Email</Text>
-                            <Text style={styles.required}>*</Text>
+                            {/* Đổi name thành "email" cho đúng chức năng */}
+                            <MaterialCommunityIcons name="email" size={20} color={theme.colors.primary} />
+                            <Text style={[styles.labelText, { color: theme.colors.onSurface }]}>Email</Text>
+                            <Text style={[styles.required, { color: theme.colors.error }]}>*</Text>
                         </View>
                         <View style={[
                             styles.inputWrapper,
-                            focusedField === 'email' && styles.inputWrapperFocused,
-                            !isEditing && styles.inputDisabled
+                            {
+                                backgroundColor: theme.colors.surfaceVariant,
+                                borderColor: theme.colors.outlineVariant
+                            },
+                            focusedField === 'email' && {
+                                borderColor: theme.colors.primary,
+                                backgroundColor: theme.colors.surface
+                            },
+                            !isEditing && { opacity: 0.6 }
                         ]}>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, { color: theme.colors.onSurface }]}
                                 value={email}
                                 onChangeText={setEmail}
                                 placeholder="email@example.com"
-                                placeholderTextColor="#CBD5E0"
+                                placeholderTextColor={theme.colors.outline}
+                                editable={isEditing}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
-                                editable={isEditing}
                                 onFocus={() => setFocusedField('email')}
                                 onBlur={() => setFocusedField('')}
                             />
@@ -209,21 +253,22 @@ const UserProfileScreen = ({ navigation }) => {
                     {/* Phone Number */}
                     <View style={styles.fieldGroup}>
                         <View style={styles.fieldLabel}>
-                            <MaterialCommunityIcons name="phone" size={20} color="#667EEA" />
-                            <Text style={styles.labelText}>Số điện thoại</Text>
-                            <Text style={styles.required}>*</Text>
+                            <MaterialCommunityIcons name="phone" size={20} color={theme.colors.primary} />
+                            <Text style={[styles.labelText, { color: theme.colors.onSurface }]}>Số điện thoại</Text>
+                            <Text style={[styles.required, { color: theme.colors.error }]}>*</Text>
                         </View>
                         <View style={[
                             styles.inputWrapper,
-                            focusedField === 'phone' && styles.inputWrapperFocused,
-                            !isEditing && styles.inputDisabled
+                            { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outlineVariant },
+                            focusedField === 'phone' && { borderColor: theme.colors.primary, backgroundColor: theme.colors.surface },
+                            !isEditing && { opacity: 0.6 }
                         ]}>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, { color: theme.colors.onSurface }]}
                                 value={phoneNumber}
                                 onChangeText={setPhoneNumber}
                                 placeholder="Nhập số điện thoại"
-                                placeholderTextColor="#CBD5E0"
+                                placeholderTextColor={theme.colors.outline}
                                 keyboardType="phone-pad"
                                 editable={isEditing}
                                 onFocus={() => setFocusedField('phone')}
@@ -235,20 +280,21 @@ const UserProfileScreen = ({ navigation }) => {
                     {/* Job */}
                     <View style={styles.fieldGroup}>
                         <View style={styles.fieldLabel}>
-                            <MaterialCommunityIcons name="briefcase" size={20} color="#667EEA" />
-                            <Text style={styles.labelText}>Nghề nghiệp</Text>
+                            <MaterialCommunityIcons name="briefcase" size={20} color={theme.colors.primary} />
+                            <Text style={[styles.labelText, { color: theme.colors.onSurface }]}>Nghề nghiệp</Text>
                         </View>
                         <View style={[
                             styles.inputWrapper,
-                            focusedField === 'job' && styles.inputWrapperFocused,
-                            !isEditing && styles.inputDisabled
+                            { backgroundColor: theme.colors.surfaceVariant, borderColor: theme.colors.outlineVariant },
+                            focusedField === 'job' && { borderColor: theme.colors.primary, backgroundColor: theme.colors.surface },
+                            !isEditing && { opacity: 0.6 }
                         ]}>
                             <TextInput
-                                style={styles.input}
+                                style={[styles.input, { color: theme.colors.onSurface }]}
                                 value={job}
                                 onChangeText={setJob}
                                 placeholder="Nhập nghề nghiệp"
-                                placeholderTextColor="#CBD5E0"
+                                placeholderTextColor={theme.colors.outline}
                                 editable={isEditing}
                                 onFocus={() => setFocusedField('job')}
                                 onBlur={() => setFocusedField('')}
@@ -260,26 +306,26 @@ const UserProfileScreen = ({ navigation }) => {
                 {isEditing && (
                     <View style={styles.actionButtons}>
                         <TouchableOpacity
-                            style={styles.cancelButton}
+                            style={[styles.cancelButton, { backgroundColor: theme.colors.surfaceVariant }]}
                             onPress={() => setIsEditing(false)}
                             activeOpacity={0.8}
                         >
-                            <Text style={styles.cancelText}>Hủy</Text>
+                            <Text style={[styles.cancelText, { color: theme.colors.onSurfaceVariant }]}>Hủy</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={styles.saveButton}
+                            style={[styles.saveButton, { shadowColor: theme.colors.primary }]}
                             onPress={handleSave}
                             activeOpacity={0.85}
                         >
                             <LinearGradient
-                                colors={['#667EEA', '#764BA2']}
+                                colors={[theme.colors.primary, theme.colors.tertiary]}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
                                 style={styles.saveGradient}
                             >
-                                <MaterialCommunityIcons name="check" size={20} color="#FFF" />
-                                <Text style={styles.saveText}>Lưu thay đổi</Text>
+                                <MaterialCommunityIcons name="check" size={20} color={theme.colors.onPrimary} />
+                                <Text style={[styles.saveText, { color: theme.colors.onPrimary }]}>Lưu thay đổi</Text>
                             </LinearGradient>
                         </TouchableOpacity>
                     </View>
@@ -287,47 +333,38 @@ const UserProfileScreen = ({ navigation }) => {
 
                 {/* Settings Options */}
                 {!isEditing && (
-                    <View style={styles.settingsCard}>
-                        <Text style={styles.settingsTitle}>Cài đặt tài khoản</Text>
+                    <View style={[styles.settingsCard, { backgroundColor: theme.colors.surface }]}>
+                        <Text style={[styles.settingsTitle, { color: theme.colors.onSurface }]}>Cài đặt tài khoản</Text>
 
-                        <TouchableOpacity style={styles.settingItem}>
-                            <View style={styles.settingLeft}>
-                                <View style={styles.settingIconWrapper}>
-                                    <MaterialCommunityIcons name="lock-reset" size={22} color="#667EEA" />
+                        {/* Các mục cài đặt thông thường (Đổi mật khẩu, Bảo mật, Thông báo) */}
+                        {[
+                            { label: 'Đổi mật khẩu', icon: 'lock-reset', color: theme.colors.primary, bgColor: theme.colors.primaryContainer },
+                            { label: 'Bảo mật', icon: 'shield-check', color: '#34C759', bgColor: '#34C75920' },
+                            { label: 'Thông báo', icon: 'bell', color: '#FF9500', bgColor: '#FF950020' },
+                        ].map((item, index) => (
+                            <TouchableOpacity
+                                key={index}
+                                style={[styles.settingItem, { borderBottomColor: theme.colors.outlineVariant }]}
+                            >
+                                <View style={styles.settingLeft}>
+                                    <View style={[styles.settingIconWrapper, { backgroundColor: item.bgColor }]}>
+                                        <MaterialCommunityIcons name={item.icon} size={22} color={item.color} />
+                                    </View>
+                                    <Text style={[styles.settingText, { color: theme.colors.onSurface }]}>{item.label}</Text>
                                 </View>
-                                <Text style={styles.settingText}>Đổi mật khẩu</Text>
-                            </View>
-                            <MaterialCommunityIcons name="chevron-right" size={22} color="#9CA3AF" />
-                        </TouchableOpacity>
+                                <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.onSurfaceVariant} />
+                            </TouchableOpacity>
+                        ))}
 
-                        <TouchableOpacity style={styles.settingItem}>
-                            <View style={styles.settingLeft}>
-                                <View style={styles.settingIconWrapper}>
-                                    <MaterialCommunityIcons name="shield-check" size={22} color="#34C759" />
-                                </View>
-                                <Text style={styles.settingText}>Bảo mật</Text>
-                            </View>
-                            <MaterialCommunityIcons name="chevron-right" size={22} color="#9CA3AF" />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.settingItem}>
-                            <View style={styles.settingLeft}>
-                                <View style={styles.settingIconWrapper}>
-                                    <MaterialCommunityIcons name="bell" size={22} color="#FF9500" />
-                                </View>
-                                <Text style={styles.settingText}>Thông báo</Text>
-                            </View>
-                            <MaterialCommunityIcons name="chevron-right" size={22} color="#9CA3AF" />
-                        </TouchableOpacity>
-
+                        {/* Nút Đăng xuất - Sử dụng cặp màu Error của hệ thống */}
                         <TouchableOpacity style={[styles.settingItem, styles.settingItemLast]}>
                             <View style={styles.settingLeft}>
-                                <View style={[styles.settingIconWrapper, { backgroundColor: '#FEE2E2' }]}>
-                                    <MaterialCommunityIcons name="logout" size={22} color="#FF3B30" />
+                                <View style={[styles.settingIconWrapper, { backgroundColor: theme.colors.errorContainer }]}>
+                                    <MaterialCommunityIcons name="logout" size={22} color={theme.colors.error} />
                                 </View>
-                                <Text style={[styles.settingText, { color: '#FF3B30' }]}>Đăng xuất</Text>
+                                <Text style={[styles.settingText, { color: theme.colors.error }]}>Đăng xuất</Text>
                             </View>
-                            <MaterialCommunityIcons name="chevron-right" size={22} color="#9CA3AF" />
+                            <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.onSurfaceVariant} />
                         </TouchableOpacity>
                     </View>
                 )}
