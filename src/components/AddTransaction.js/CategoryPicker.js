@@ -2,8 +2,10 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CATEGORY_CONFIG } from '../../constants/categories';
+import { useTheme } from 'react-native-paper'; 
 
 const CategoryPicker = ({ selectedCategory, onSelect, type }) => {
+    const theme = useTheme(); 
     const categories = Object.values(CATEGORY_CONFIG).filter(cat => cat.type === type);
 
     return (
@@ -13,13 +15,39 @@ const CategoryPicker = ({ selectedCategory, onSelect, type }) => {
                 return (
                     <TouchableOpacity
                         key={item.label}
-                        style={[styles.categoryItem, isSelected && styles.categoryItemSelected]}
+                        style={[
+                            styles.categoryItem, 
+                            { 
+                                backgroundColor: theme.colors.surface, 
+                                borderColor: theme.colors.outlineVariant 
+                            },
+                            isSelected && { 
+                                borderColor: theme.colors.primary, 
+                                backgroundColor: theme.colors.primaryContainer 
+                            }
+                        ]}
                         onPress={() => onSelect(item.label)}
                     >
-                        <View style={[styles.categoryIconWrapper, { backgroundColor: item.color + (isSelected ? '' : '15') }, isSelected && { backgroundColor: item.color }]}>
-                            <MaterialCommunityIcons name={item.icon} size={24} color={isSelected ? '#FFFFFF' : item.color} />
+                        <View style={[
+                            styles.categoryIconWrapper, 
+                            { backgroundColor: item.color + (isSelected ? '' : '15') }, 
+                            isSelected && { backgroundColor: item.color }
+                        ]}>
+                            <MaterialCommunityIcons 
+                                name={item.icon} 
+                                size={24} 
+                                color={isSelected ? '#FFFFFF' : item.color} 
+                            />
                         </View>
-                        <Text style={[styles.categoryName, isSelected && styles.categoryNameSelected]}>{item.label}</Text>
+                        
+                        {/* 4. Đổi màu chữ tên danh mục */}
+                        <Text style={[
+                            styles.categoryName, 
+                            { color: theme.colors.onSurfaceVariant },
+                            isSelected && { color: theme.colors.primary, fontWeight: 'bold' }
+                        ]}>
+                            {item.label}
+                        </Text>
                     </TouchableOpacity>
                 );
             })}

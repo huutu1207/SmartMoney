@@ -2,9 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+// 1. Import useTheme
+import { useTheme } from 'react-native-paper'; 
 
 const DatePickerSection = ({ date, onDateChange }) => {
     const [show, setShow] = useState(false);
+    // 2. Khai báo theme
+    const theme = useTheme(); 
 
     const handleChange = (event, selectedDate) => {
         setShow(Platform.OS === 'ios');
@@ -23,17 +27,26 @@ const DatePickerSection = ({ date, onDateChange }) => {
     return (
         <View style={styles.container}>
             <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons name="calendar-edit" size={20} color="#667EEA" />
-                <Text style={styles.sectionTitle}>Thời gian giao dịch</Text>
+                {/* 3. Dùng màu primary cho icon */}
+                <MaterialCommunityIcons name="calendar-edit" size={20} color={theme.colors.primary} />
+                <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
+                    Thời gian giao dịch
+                </Text>
             </View>
 
             <TouchableOpacity
-                style={styles.datePickerCard}
+                style={[
+                    styles.datePickerCard, 
+                    { 
+                        backgroundColor: theme.colors.surface, 
+                        borderColor: theme.colors.outlineVariant 
+                    }
+                ]}
                 onPress={() => setShow(true)}
                 activeOpacity={0.7}
             >
                 <View style={styles.dateInfo}>
-                    <Text style={styles.dateText}>
+                    <Text style={[styles.dateText, { color: theme.colors.onSurface }]}>
                         {date.toLocaleDateString('vi-VN', {
                             weekday: 'long',
                             day: '2-digit',
@@ -41,13 +54,16 @@ const DatePickerSection = ({ date, onDateChange }) => {
                             year: 'numeric'
                         })}
                     </Text>
+                    
                     {isToday(date) && (
-                        <View style={styles.todayBadge}>
-                            <Text style={styles.todayText}>Hôm nay</Text>
+                        <View style={[styles.todayBadge, { backgroundColor: theme.colors.primaryContainer }]}>
+                            <Text style={[styles.todayText, { color: theme.colors.onPrimaryContainer }]}>
+                                Hôm nay
+                            </Text>
                         </View>
                     )}
                 </View>
-                <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
+                <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.onSurfaceVariant} />
             </TouchableOpacity>
 
             {show && (
@@ -57,6 +73,7 @@ const DatePickerSection = ({ date, onDateChange }) => {
                     display="default"
                     onChange={handleChange}
                     maximumDate={new Date()}
+                    // Lưu ý: DateTimePicker của hệ thống sẽ tự đổi màu theo mode của máy (Android/iOS)
                 />
             )}
         </View>
@@ -66,16 +83,16 @@ const DatePickerSection = ({ date, onDateChange }) => {
 const styles = StyleSheet.create({
     container: { marginBottom: 28 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-    sectionTitle: { fontSize: 17, fontWeight: 'bold', color: '#1F2937' },
+    sectionTitle: { fontSize: 17, fontWeight: 'bold' },
     datePickerCard: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 16,
-        paddingVertical: 14, borderWidth: 2, borderColor: '#F1F5F9', elevation: 1,
+        borderRadius: 18, paddingHorizontal: 16,
+        paddingVertical: 14, borderWidth: 2, elevation: 1,
     },
     dateInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    dateText: { fontSize: 15, color: '#1F2937', fontWeight: '600', textTransform: 'capitalize' },
-    todayBadge: { backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-    todayText: { fontSize: 11, color: '#667EEA', fontWeight: 'bold' },
+    dateText: { fontSize: 15, fontWeight: '600', textTransform: 'capitalize' },
+    todayBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+    todayText: { fontSize: 11, fontWeight: 'bold' },
 });
 
 export default DatePickerSection;

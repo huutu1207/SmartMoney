@@ -2,31 +2,51 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+// 1. Import useTheme
+import { useTheme } from 'react-native-paper'; 
 
 const SummaryCard = ({ totalBalance, income, expense, selectedPeriod, onPeriodChange, formatCurrency }) => {
+    // 2. Khai báo theme
+    const theme = useTheme(); 
+
     return (
         <LinearGradient
             colors={['#3B82F6', '#4F46E5', '#7C3AED']}
-            style={styles.balanceCard}
+            style={[
+                styles.balanceCard, 
+                // 3. Tăng shadowColor để card "phát sáng" trong tối
+                { shadowColor: theme.dark ? '#4F46E5' : '#000' }
+            ]}
         >
             <View style={styles.balanceHeader}>
                 <View>
                     <Text style={styles.balanceLabel}>Tổng số dư</Text>
                     <Text style={[
                         styles.balanceValue,
-                        { color: totalBalance < 0 ? '#FF3B30' : '#FFFFFF' } // Đỏ nếu âm, Trắng nếu dương
+                        { 
+                            // 4. Nếu số dư âm, dùng màu error của theme thay vì đỏ cứng
+                            color: totalBalance < 0 ? theme.colors.error : '#FFFFFF' 
+                        }
                     ]}>
                         {formatCurrency(totalBalance)}
                     </Text>
                 </View>
+                
+                {/* Selector cho thời gian */}
                 <View style={styles.periodSelector}>
                     {['week', 'month', 'year'].map((p) => (
                         <TouchableOpacity
                             key={p}
                             onPress={() => onPeriodChange(p)}
-                            style={[styles.periodTab, selectedPeriod === p && styles.periodTabActive]}
+                            style={[
+                                styles.periodTab, 
+                                selectedPeriod === p && styles.periodTabActive
+                            ]}
                         >
-                            <Text style={[styles.periodText, selectedPeriod === p && styles.periodTextActive]}>
+                            <Text style={[
+                                styles.periodText, 
+                                selectedPeriod === p && styles.periodTextActive
+                            ]}>
                                 {p === 'week' ? 'Tuần' : p === 'month' ? 'Tháng' : 'Năm'}
                             </Text>
                         </TouchableOpacity>
@@ -45,6 +65,7 @@ const SummaryCard = ({ totalBalance, income, expense, selectedPeriod, onPeriodCh
                         <Text style={styles.statAmount}>{formatCurrency(income)}</Text>
                     </View>
                 </View>
+
                 {/* Chi tiêu */}
                 <View style={styles.statBox}>
                     <View style={styles.statIconBadgeRed}>
