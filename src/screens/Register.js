@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
     topSection: {
         alignItems: 'center',
         paddingTop: 30,
-        paddingBottom: 30,
+        paddingBottom: 40,
         zIndex: 1,
     },
     logoWrapper: {

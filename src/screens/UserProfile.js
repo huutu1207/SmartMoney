@@ -11,50 +11,72 @@ import { db, auth } from '../services/firebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import ChangePasswordScreen from './ChangePassword';
-
+import * as ImagePicker from 'expo-image-picker';
+import LoadingOverlay from '../components/LoadingOverlay';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../services/firebaseConfig';
 const UserProfileScreen = ({ navigation }) => {
     // 1. Khai báo các State để lưu trữ thông tin
     const theme = useTheme();
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [focusedField, setFocusedField] = useState('');
-
+    const [isSaving, setIsSaving] = useState(false);
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [job, setJob] = useState('');
     const [birthDate, setBirthDate] = useState('');
     const [avatarUrl, setAvatarUrl] = useState('https://via.placeholder.com/150');
+    const [isGoogleUser, setIsGoogleUser] = useState(false);
+    const [base64Avatar, setBase64Avatar] = useState(null);
 
     useEffect(() => {
         const fetchUserData = async () => {
             try {
                 const user = auth.currentUser;
                 if (user) {
-                    // Lấy từ Auth (thông tin đăng nhập Google)
+                    const isGoogle = user.providerData.some(p => p.providerId === 'google.com');
+                    setIsGoogleUser(isGoogle);
                     setFullName(user.displayName || '');
                     setEmail(user.email || '');
                     setAvatarUrl(user.photoURL || 'https://via.placeholder.com/150');
 
-                    // Lấy từ Firestore (thông tin bổ sung)
                     const docRef = doc(db, "users", user.uid);
                     const docSnap = await getDoc(docRef);
-
                     if (docSnap.exists()) {
                         const data = docSnap.data();
                         setPhoneNumber(data.phoneNumber || '');
                         setJob(data.job || '');
                         setBirthDate(data.birthDate || '');
+                        // Ưu tiên dùng avatar từ Firestore nếu có
+                        if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
                     }
                 }
             } catch (error) {
-                console.error("Lỗi lấy thông tin:", error);
+                console.error("Lỗi:", error);
             } finally {
                 setLoading(false);
             }
         };
         fetchUserData();
     }, []);
+
+    const IMGBB_API_KEY = process.env.EXPO_PUBLIC_IMGBB_API_KEY;
+
+    const uploadToImgBB = async (base64Data) => {
+        const formData = new FormData();
+        formData.append('image', base64Data);
+
+        const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        const result = await response.json();
+        if (result.success) return result.data.url;
+        throw new Error(result.error.message);
+    };
 
     const handleLogout = () => {
         Alert.alert("Đăng xuất", "Bạn có chắc chắn muốn thoát không?", [
@@ -67,24 +89,35 @@ const UserProfileScreen = ({ navigation }) => {
         ]);
     };
 
+
     const handleSave = async () => {
+        setIsSaving(true); // ✅ Dùng state mới để bật Overlay con heo
         try {
             const user = auth.currentUser;
-            if (!user) return;
+            let finalAvatarUrl = avatarUrl;
+
+            if (base64Avatar) {
+                finalAvatarUrl = await uploadToImgBB(base64Avatar);
+            }
 
             const userRef = doc(db, "users", user.uid);
             await setDoc(userRef, {
-                fullName: fullName,
-                phoneNumber: phoneNumber,
-                job: job,
-                birthDate: birthDate,
+                fullName,
+                phoneNumber,
+                job,
+                birthDate,
+                avatarUrl: finalAvatarUrl,
                 updatedAt: new Date()
             }, { merge: true });
 
             setIsEditing(false);
-            Alert.alert("Thành công", "Thông tin cá nhân đã được cập nhật!");
+            setBase64Avatar(null);
+            setAvatarUrl(finalAvatarUrl);
+            Alert.alert("Thành công", "Thông tin đã được lưu lên mây!");
         } catch (error) {
-            Alert.alert("Lỗi", "Không thể cập nhật thông tin.");
+            Alert.alert("Lỗi", "Không lưu được thông tin Tú ơi!");
+        } finally {
+            setIsSaving(false); // ✅ Tắt Overlay
         }
     };
 
@@ -97,11 +130,46 @@ const UserProfileScreen = ({ navigation }) => {
     }
 
     const handleChangeAvatar = () => {
-        Alert.alert("Chọn ảnh", "Tính năng chọn ảnh đại diện", [
-            { text: "Chụp ảnh", onPress: () => console.log("Camera") },
-            { text: "Chọn từ thư viện", onPress: () => console.log("Gallery") },
+        Alert.alert("Thay đổi ảnh", "Tú muốn chọn ảnh từ đâu?", [
+            { text: "Chụp ảnh", onPress: openCamera },
+            { text: "Thư viện", onPress: openLibrary },
             { text: "Hủy", style: "cancel" }
         ]);
+    };
+    
+    const openLibrary = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') return Alert.alert("Lỗi", "Cần quyền truy cập ảnh!");
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+            base64: true, // ✅ Quan trọng để lấy dữ liệu up ImgBB
+        });
+
+        if (!result.canceled) {
+            setAvatarUrl(result.assets[0].uri);
+            setBase64Avatar(result.assets[0].base64); // Lưu base64 để lát nữa upload
+        }
+    };
+
+    const openCamera = async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') return Alert.alert("Lỗi", "Cần quyền Camera!");
+
+        const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+            base64: true,
+        });
+
+        if (!result.canceled) {
+            setAvatarUrl(result.assets[0].uri);
+            setBase64Avatar(result.assets[0].base64);
+        }
     };
 
     return (
@@ -229,9 +297,9 @@ const UserProfileScreen = ({ navigation }) => {
                     </View>
 
                     {/* Email */}
+                    {/* Email - Luôn khóa để đảm bảo an toàn */}
                     <View style={styles.fieldGroup}>
                         <View style={styles.fieldLabel}>
-                            {/* Đổi name thành "email" cho đúng chức năng */}
                             <MaterialCommunityIcons name="email" size={20} color={theme.colors.primary} />
                             <Text style={[styles.labelText, { color: theme.colors.onSurface }]}>Email</Text>
                             <Text style={[styles.required, { color: theme.colors.error }]}>*</Text>
@@ -240,26 +308,20 @@ const UserProfileScreen = ({ navigation }) => {
                             styles.inputWrapper,
                             {
                                 backgroundColor: theme.colors.surfaceVariant,
-                                borderColor: theme.colors.outlineVariant
+                                borderColor: theme.colors.outlineVariant,
+                                // Làm mờ hẳn đi để người dùng biết là không thể chạm vào[cite: 1]
+                                opacity: 0.6
                             },
-                            focusedField === 'email' && {
-                                borderColor: theme.colors.primary,
-                                backgroundColor: theme.colors.surface
-                            },
-                            !isEditing && { opacity: 0.6 }
                         ]}>
                             <TextInput
                                 style={[styles.input, { color: theme.colors.onSurface }]}
                                 value={email}
-                                onChangeText={setEmail}
+                                editable={false} // KHÓA CỨNG: Không bao giờ cho sửa ở đây[cite: 1]
                                 placeholder="email@example.com"
                                 placeholderTextColor={theme.colors.outline}
-                                editable={isEditing}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                onFocus={() => setFocusedField('email')}
-                                onBlur={() => setFocusedField('')}
                             />
+                            {/* Có thể thêm icon khóa nhỏ ở đây để báo hiệu */}
+                            <MaterialCommunityIcons name="lock" size={16} color={theme.colors.outline} />
                         </View>
                     </View>
 
@@ -351,24 +413,54 @@ const UserProfileScreen = ({ navigation }) => {
 
                         {/* Các mục cài đặt thông thường (Đổi mật khẩu, Bảo mật, Thông báo) */}
                         {[
-                            { label: 'Đổi mật khẩu', icon: 'lock-reset', color: theme.colors.primary, bgColor: theme.colors.primaryContainer, onPress: () => navigation.navigate('ChangePassword')},
+                            {
+                                label: isGoogleUser ? 'Đổi mật khẩu (Dùng Google)' : 'Đổi mật khẩu',
+                                icon: 'lock-reset',
+                                // Nếu là Google User thì dùng màu xám (outline), ngược lại dùng màu Primary của App
+                                color: isGoogleUser ? theme.colors.outline : theme.colors.primary,
+                                bgColor: isGoogleUser ? theme.colors.surfaceVariant : theme.colors.primaryContainer,
+                                onPress: () => navigation.navigate('ChangePassword'),
+                                isPassword: true // Đánh dấu đây là mục mật khẩu
+                            },
                             { label: 'Bảo mật', icon: 'shield-check', color: '#34C759', bgColor: '#34C75920' },
                             { label: 'Thông báo', icon: 'bell', color: '#FF9500', bgColor: '#FF950020' },
-                        ].map((item, index) => (
-                            <TouchableOpacity
-                                key={index}
-                                style={[styles.settingItem, { borderBottomColor: theme.colors.outlineVariant }]}
-                                onPress={() => item.onPress?.()}
-                            >
-                                <View style={styles.settingLeft}>
-                                    <View style={[styles.settingIconWrapper, { backgroundColor: item.bgColor }]}>
-                                        <MaterialCommunityIcons name={item.icon} size={22} color={item.color} />
+                        ].map((item, index) => {
+                            // Kiểm tra xem mục này có bị vô hiệu hóa không
+                            const isDisabled = item.isPassword && isGoogleUser;
+
+                            return (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={[
+                                        styles.settingItem,
+                                        { borderBottomColor: theme.colors.outlineVariant },
+                                        // Nếu bị disable thì làm mờ cả dòng đi[cite: 1]
+                                        isDisabled && { opacity: 0.5 }
+                                    ]}
+                                    // Thuộc tính quan trọng nhất để chặn bấm[cite: 1]
+                                    disabled={isDisabled}
+                                    onPress={() => item.onPress?.()}
+                                >
+                                    <View style={styles.settingLeft}>
+                                        <View style={[styles.settingIconWrapper, { backgroundColor: item.bgColor }]}>
+                                            <MaterialCommunityIcons name={item.icon} size={22} color={item.color} />
+                                        </View>
+                                        <Text style={[
+                                            styles.settingText,
+                                            { color: isDisabled ? theme.colors.outline : theme.colors.onSurface }
+                                        ]}>
+                                            {item.label}
+                                        </Text>
                                     </View>
-                                    <Text style={[styles.settingText, { color: theme.colors.onSurface }]}>{item.label}</Text>
-                                </View>
-                                <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.onSurfaceVariant} />
-                            </TouchableOpacity>
-                        ))}
+
+                                    {/* Nếu không bị disable thì mới hiện mũi tên chevron-right */}
+                                    {!isDisabled && (
+                                        <MaterialCommunityIcons name="chevron-right" size={22} color={theme.colors.onSurfaceVariant} />
+                                    )}
+                                </TouchableOpacity>
+                            );
+                        })}
+
 
                         {/* Nút Đăng xuất - Sử dụng cặp màu Error của hệ thống */}
                         <TouchableOpacity style={[styles.settingItem, styles.settingItemLast]}
@@ -386,7 +478,10 @@ const UserProfileScreen = ({ navigation }) => {
                 )}
 
                 <View style={{ height: 40 }} />
+
             </ScrollView>
+            <LoadingOverlay visible={loading || isSaving} message={loading ? "Đang tải..." : "Đang lưu lên mây..."} />
+
         </SafeAreaView>
     );
 };

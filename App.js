@@ -35,7 +35,7 @@ import AddCategories from './src/screens/AddCategories';
 import ScanPreviewScreen from './src/screens/ScanPreview';
 import StatisticsScreen from './src/screens/Statistics';
 import ChangePasswordScreen from './src/screens/ChangePassword';
-
+import ForgotPasswordScreen from './src/screens/ForgotPassword';
 // --- IMPORT CONTEXT ---
 import { ThemeContext, ThemeProvider } from './src/context/ThemeContext'; // 2. Thêm ThemeProvider
 
@@ -128,6 +128,8 @@ function AppContent() {
               <>
                 <Stack.Screen name="Login" component={Login} />
                 <Stack.Screen name="Register" component={Register} />
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+
               </>
             )}
           </Stack.Navigator>

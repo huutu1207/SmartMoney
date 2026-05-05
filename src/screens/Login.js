@@ -20,10 +20,11 @@ import { Alert } from 'react-native';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { useTheme } from 'react-native-paper';
-
+import LoadingOverlay from '../components/LoadingOverlay';
 const LoginScreen = ({ navigation }) => {
     const theme = useTheme();
     const onGoogleButtonPress = async () => {
+        setIsLoading(true);
         try {
             // Kiểm tra dịch vụ Google Play (chỉ Android)
             await GoogleSignin.hasPlayServices();
@@ -45,13 +46,16 @@ const LoginScreen = ({ navigation }) => {
             console.log('Lỗi Google Login:', error);
             Alert.alert('Lỗi', 'Không thể đăng nhập bằng Google. Vui lòng thử lại.');
         }
+        finally {
+            setIsLoading(false);
+        }
     };
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isEmailFocused, setIsEmailFocused] = useState(false);
     const [isPasswordFocused, setIsPasswordFocused] = useState(false);
-
+    const [isLoading, setIsLoading] = useState(false);
     React.useEffect(() => {
         GoogleSignin.configure({
             webClientId: '201189817902-9mo5uip3752nfc4lcq6jv26drrd5pq48.apps.googleusercontent.com',
@@ -63,7 +67,7 @@ const LoginScreen = ({ navigation }) => {
             Alert.alert("Lỗi", "Vui lòng nhập đầy đủ email và mật khẩu");
             return;
         }
-
+        setIsLoading(true);
         try {
             await signInWithEmailAndPassword(auth, email, password);
             console.log("Đăng nhập thành công!");
@@ -72,6 +76,9 @@ const LoginScreen = ({ navigation }) => {
             if (error.code === 'auth/user-not-found') errorMessage = "Tài khoản không tồn tại";
             if (error.code === 'auth/wrong-password') errorMessage = "Mật khẩu không chính xác";
             Alert.alert("Đăng nhập thất bại", errorMessage);
+        }
+        finally {
+            setIsLoading(false);
         }
     };
 
@@ -186,7 +193,7 @@ const LoginScreen = ({ navigation }) => {
                         <View style={styles.inputGroup}>
                             <View style={styles.labelRow}>
                                 <Text style={[styles.inputLabel, { color: theme.colors.onSurface }]}>Mật khẩu</Text>
-                                <TouchableOpacity>
+                                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
                                     <Text style={[styles.forgotText, { color: theme.colors.primary }]}>Quên mật khẩu?</Text>
                                 </TouchableOpacity>
                             </View>
@@ -317,6 +324,7 @@ const LoginScreen = ({ navigation }) => {
                     <View style={{ height: 40 }} />
                 </ScrollView>
             </KeyboardAvoidingView>
+            <LoadingOverlay visible={isLoading} message="Đang đăng nhập..." />
         </SafeAreaView>
     );
 };
