@@ -3,6 +3,8 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
+import { getStorage } from "firebase/storage";
+
 const firebaseConfig = {
     apiKey:process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
     authDomain: "smartmoney-fc077.firebaseapp.com",
@@ -17,5 +19,9 @@ const app = initializeApp(firebaseConfig);
 export const auth = initializeAuth(app, {
     persistence: getReactNativePersistence(ReactNativeAsyncStorage)
 });
+const storage = getStorage(app);
+
 // export const auth = getAuth(app);
-export const db = getFirestore(app);
+const db = getFirestore(app);
+
+export { db, storage };
