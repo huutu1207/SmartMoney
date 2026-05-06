@@ -18,3 +18,18 @@ export const CATEGORY_CONFIG = {
     'Khác': { icon: 'dots-horizontal-circle', color: '#8E8E93', label: 'Khác', type: 'expense' },
     'default': { icon: 'help-circle', color: '#8E8E93', label: 'Khác', type: 'expense' }
 };
+
+export const getCategoryData = (categoryName, firestoreData = {}) => {
+    // 1. Nếu categoryName nằm trong danh sách mặc định (Ăn uống, Di chuyển...)
+    if (CATEGORY_CONFIG[categoryName]) {
+        return CATEGORY_CONFIG[categoryName];
+    }
+
+    // 2. Nếu là category do Tú tự thêm (lấy từ Firestore)
+    return {
+        icon: firestoreData.icon || CATEGORY_CONFIG['default'].icon,
+        color: firestoreData.color || CATEGORY_CONFIG['default'].color,
+        label: categoryName,
+        type: firestoreData.type || 'expense'
+    };
+};

@@ -1,25 +1,24 @@
 import { db, auth } from './firebaseConfig';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, deleteDoc} from 'firebase/firestore';
 
-export const addTransaction = async (amount, type, category, note, date) => {
+export const addTransaction = async (amount, type, category, note, date, icon, color) => {
     try {
         const userId = auth.currentUser.uid;
-
         await addDoc(collection(db, "transactions"), {
             userId: userId,
             amount: Number(amount),
             type: type,
             category: category,
             note: note,
-            date: serverTimestamp(),
-            date: date || new Date(), // Dùng date truyền vào, nếu không có mới lấy ngày hiện tại
+            icon: icon,   // Dùng tham số vừa nhận được
+            color: color, // Dùng tham số vừa nhận được
+            // Lưu ý: Chỉ để 1 dòng date thôi Tú nhé, xóa cái serverTimestamp() ở date đi
+            date: date || new Date(), 
             createdAt: serverTimestamp()
         });
-
-        console.log("Giao dịch đã được lưu!");
         return true;
-    } catch (error) {
-        console.error("Lỗi khi lưu giao dịch: ", error);
+    } catch (e) {
+        console.error("Lỗi khi thêm giao dịch: ", e);
         return false;
     }
 };
