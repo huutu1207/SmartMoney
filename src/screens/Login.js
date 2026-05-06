@@ -277,7 +277,7 @@ const LoginScreen = ({ navigation }) => {
 
                         {/* Social Buttons */}
                         <View style={styles.socialRow}>
-                            {['google', 'facebook'].map((platform) => (
+                            {['google'].map((platform) => (
                                 <TouchableOpacity
                                     key={platform}
                                     style={[styles.socialBtn, { borderColor: theme.colors.outlineVariant, borderWidth: 1 }]}

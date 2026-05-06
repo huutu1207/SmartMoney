@@ -15,6 +15,7 @@ import { db, auth } from '../services/firebaseConfig';
 import { Timestamp } from 'firebase/firestore';
 import { ThemeContext } from '../context/ThemeContext';
 import { useTheme } from 'react-native-paper';
+import { onSnapshot } from 'firebase/firestore';
 const { width } = Dimensions.get('window');
 
 // ── Palette (Light) ───────────────────────────────────
@@ -171,55 +172,52 @@ const StatisticsScreen = ({ navigation }) => {
         chartColors: ['#3B6FF0', '#10B981', '#F472B6', '#F59E0B', '#8B5CF6', '#FB923C'],
     };
     useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            if (!user) {
-                console.log("Đang đợi user hoặc chưa đăng nhập...");
-                setLoading(false);
-                return;
-            }
+        const user = auth.currentUser;
+        if (!user) return;
 
-            // Chọn hàm tính range dựa trên state 'filter'
-            const range =
-                filter === 'month' ? getMonthRange() :
-                    filter === 'quarter' ? getQuarterRange() :
-                        getYearRange();
+        setLoading(true);
 
-            try {
-                const q = query(
-                    collection(db, 'transactions'),
-                    where('userId', '==', user.uid),
-                    where('type', '==', 'expense'),
-                    where('date', '>=', Timestamp.fromDate(range.start)),
-                    where('date', '<=', Timestamp.fromDate(range.end))
-                );
+        // 1. Xác định khoảng thời gian dựa trên filter
+        const range =
+            filter === 'month' ? getMonthRange() :
+                filter === 'quarter' ? getQuarterRange() :
+                    getYearRange();
 
-                const snap = await getDocs(q);
-                const totals = {};
+        // 2. Xây dựng query
+        const q = query(
+            collection(db, 'transactions'),
+            where('userId', '==', user.uid),
+            where('type', '==', 'expense'),
+            where('date', '>=', Timestamp.fromDate(range.start)),
+            where('date', '<=', Timestamp.fromDate(range.end))
+        );
 
-                snap.forEach((doc) => {
-                    const { category, amount } = doc.data();
-                    // Gom nhóm số tiền theo danh mục
-                    totals[category] = (totals[category] || 0) + amount;
-                });
+        // 3. Sử dụng onSnapshot để lắng nghe thay đổi thời gian thực
+        const unsubscribe = onSnapshot(q, (snap) => {
+            const totals = {};
 
-                const formatted = Object.keys(totals).map((key, i) => ({
-                    name: key,
-                    amount: totals[key],
-                    color: C.chartColors[i % C.chartColors.length],
-                    legendFontColor: C.sub,
-                    legendFontSize: 12,
-                }));
+            snap.forEach((doc) => {
+                const { category, amount } = doc.data();
+                totals[category] = (totals[category] || 0) + amount;
+            });
 
-                setChartData(formatted);
-            } catch (e) {
-                console.error("❌ Lỗi truy vấn Firestore:", e);
-            } finally {
-                setLoading(false);
-            }
-        };
+            const formatted = Object.keys(totals).map((key, i) => ({
+                name: key,
+                amount: totals[key],
+                color: C.chartColors[i % C.chartColors.length],
+                legendFontColor: C.sub,
+                legendFontSize: 12,
+            }));
 
-        fetchData();
+            setChartData(formatted);
+            setLoading(false);
+        }, (error) => {
+            console.error("❌ Lỗi lắng nghe Firestore:", error);
+            setLoading(false);
+        });
+
+        // 4. Cleanup: Ngắt kết nối khi thoát khỏi màn hình
+        return () => unsubscribe();
     }, [filter, user]);
 
     const total = chartData.reduce((s, d) => s + d.amount, 0);

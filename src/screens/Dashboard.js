@@ -57,7 +57,18 @@ const getPeriodRange = (period, anchorDate) => {
     }
 };
 
-
+// Thêm hàm này vào trên cùng, sau các dòng import
+const getCategoryData = (categoryName, firestoreData = {}) => {
+    if (CATEGORY_CONFIG[categoryName]) {
+        return CATEGORY_CONFIG[categoryName];
+    }
+    return {
+        icon: firestoreData.icon || CATEGORY_CONFIG['default'].icon,
+        color: firestoreData.color || CATEGORY_CONFIG['default'].color,
+        label: categoryName,
+        type: firestoreData.type || 'expense'
+    };
+};
 const Dashboard = ({ navigation }) => {
     const theme = useTheme();
     const [selectedPeriod, setSelectedPeriod] = useState('month');
@@ -316,32 +327,36 @@ const Dashboard = ({ navigation }) => {
                 </View>
 
                 {/* 4. Danh sách giao dịch gần đây */}
-                <View style={styles.listContainer}>
-                    <View style={styles.listHeader}>
-                        <Text style={[styles.listTitle, { color: theme.colors.onSurface }]}>Giao dịch gần đây</Text>
-                        <TouchableOpacity>
-                            <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>Xem tất cả →</Text>
-                        </TouchableOpacity>
-                    </View>
+                <View style={styles.transactionList}>
+                    {transactions.length === 0 ? (
+                        <Text style={{ textAlign: 'center', padding: 20, color: theme.colors.outline }}>
+                            Chưa có giao dịch nào
+                        </Text>
+                    ) : (
+                        transactions.map((item) => {
+                            // Bước 1: Tìm thông tin icon/màu sắc
+                            // Ưu tiên 1: Trong CATEGORY_CONFIG (hàng mặc định)
+                            // Ưu tiên 2: Lấy trực tiếp từ dữ liệu item lưu trong Firestore (hàng tự thêm)
+                            // Ưu tiên 3: Dùng hàng mặc định 'default' nếu không tìm thấy gì
+                            const categoryStyle = CATEGORY_CONFIG[item.category] || {
+                                icon: item.icon || CATEGORY_CONFIG['default'].icon,
+                                color: item.color || CATEGORY_CONFIG['default'].color,
+                                label: item.category,
+                                type: item.type || 'expense'
+                            };
 
-                    <View style={styles.transactionList}>
-                        {transactions.length === 0 ? (
-                            <Text style={{ textAlign: 'center', padding: 20, color: theme.colors.outline }}>
-                                Chưa có giao dịch nào
-                            </Text>
-                        ) : (
-                            transactions.map((item) => (
+                            return (
                                 <TransactionItem
                                     key={item.id}
                                     item={item}
+                                    categoryStyle={categoryStyle} // Truyền thêm prop style đã tính toán
                                     formatCurrency={formatCurrency}
                                     onPress={() => navigation.navigate('AddTransaction', { transaction: item })}
                                     onLongPress={() => confirmDelete(item.id)}
-                                // Lưu ý: Đảm bảo TransactionItem bên trong cũng sử dụng theme
                                 />
-                            ))
-                        )}
-                    </View>
+                            );
+                        })
+                    )}
                 </View>
 
                 <View style={{ height: 30 }} />
