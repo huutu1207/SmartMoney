@@ -7,7 +7,9 @@ import {
     TouchableOpacity,
     StatusBar,
     Dimensions,
-    Alert
+    Modal,
+    Alert,
+    ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -21,6 +23,7 @@ import TransactionItem from '../components/Dashboard/TransactionItem';
 import { CATEGORY_CONFIG } from '../constants/categories';
 import * as ImagePicker from 'expo-image-picker'
 import { useTheme } from 'react-native-paper';
+import { getFinancialAdvice } from '../services/gemini';
 const { width } = Dimensions.get('window');
 
 
@@ -86,6 +89,9 @@ const Dashboard = ({ navigation }) => {
             signDisplay: 'auto'
         }).format(safeAmount);
     };
+    const [aiResponse, setAiResponse] = useState("");
+    const [isAiLoading, setIsAiLoading] = useState(false);
+    const [showAiModal, setShowAiModal] = useState(false);
     const getDynamicGreeting = () => {
         const hour = new Date().getHours();
         const name = auth.currentUser?.displayName?.split(' ').pop() || "Tú"; // Lấy tên gọi cuối cùng
@@ -95,6 +101,48 @@ const Dashboard = ({ navigation }) => {
         if (hour >= 14 && hour < 18) return `Chào buổi chiều, ${name}! ☕`;
         return `Chào buổi tối, ${name}! 🌙`;
     };
+
+    const handleAskAI = async () => {
+        try {
+            setAiResponse("");
+            setShowAiModal(true);
+            setIsAiLoading(true);
+
+            const expenses = transactions?.filter(t => t.type === 'expense') || [];
+            let topCat = { name: "chưa rõ", amount: 0 };
+
+            if (expenses.length > 0) {
+                const totals = {};
+                expenses.forEach(t => {
+                    totals[t.category] = (totals[t.category] || 0) + t.amount;
+                });
+                const sortedKeys = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
+                topCat = { name: sortedKeys[0], amount: totals[sortedKeys[0]] };
+            }
+
+            const result = await getFinancialAdvice({
+                name: auth.currentUser?.displayName?.split(' ').pop() || "Túuu",
+                income: income || 0,
+                expense: expense || 0,
+                balance: totalBalance || 0,
+                topCategory: topCat.name,
+                topAmount: topCat.amount,
+            });
+
+            if (result) {
+                setAiResponse(result);
+            } else {
+                setAiResponse("Bot đang bận tí, thử lại sau nhé!");
+            }
+
+        } catch (err) {
+            console.error("Lỗi Dashboard:", err);
+            setAiResponse("Có lỗi xảy ra rồi!");
+        } finally {
+            setIsAiLoading(false); 
+        }
+    };
+
     const handleScanPress = () => {
         Alert.alert(
             "Quét hóa đơn",
@@ -269,23 +317,48 @@ const Dashboard = ({ navigation }) => {
                             SmartMoney
                         </Text>
                         <Text style={[styles.headerSub, { color: theme.colors.onSurfaceVariant }]}>
-                            {greeting} {/* Nó sẽ tự động nhảy từ "Chào buổi sáng, Bạn!" sang "Chào buổi sáng, Tú!" khi có tên */}
+                            {greeting}
                         </Text>
                     </View>
                 </View>
 
-                <TouchableOpacity style={[
-                    styles.chartButton,
-                    { backgroundColor: theme.colors.surfaceVariant }
-                ]}>
-                    <MaterialCommunityIcons
-                        name="chart-pie"
-                        size={22}
-                        color={theme.colors.primary}
-                    />
+                <TouchableOpacity onPress={handleAskAI} style={styles.aiButton}>
+                    <LinearGradient
+                        colors={['#8E2DE2', '#4A00E0']} // Màu tím đặc trưng cho AI
+                        style={styles.aiIconCircle}
+                    >
+                        <MaterialCommunityIcons name="robot-happy" size={22} color="white" />
+                    </LinearGradient>
                 </TouchableOpacity>
             </View>
+            <Modal
+                visible={showAiModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowAiModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.aiCard}>
+                        <View style={styles.aiHeader}>
+                            <MaterialCommunityIcons name="robot" size={30} color="#4A00E0" />
+                            <Text style={styles.aiTitle}>Cố vấn SmartMoney AI</Text>
+                        </View>
 
+                        {isAiLoading ? (
+                            <ActivityIndicator size="large" color="#4A00E0" style={{ marginVertical: 20 }} />
+                        ) : (
+                            <Text style={styles.aiText}>{aiResponse}</Text>
+                        )}
+
+                        <TouchableOpacity
+                            style={styles.closeBtn}
+                            onPress={() => setShowAiModal(false)}
+                        >
+                            <Text style={styles.closeBtnText}>Đã hiểu, cảm ơn!</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={[styles.scrollBody, { backgroundColor: theme.colors.background }]}
@@ -408,7 +481,20 @@ const styles = StyleSheet.create({
     chartButton: { width: 40, height: 40, backgroundColor: '#F3F4F6', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
 
     scrollBody: { padding: 20 },
-
+    aiButton: {
+        borderRadius: 25,
+        elevation: 5, // Tạo bóng đổ trên Android
+        shadowColor: '#4A00E0',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+    },
+    aiIconCircle: {
+        padding: 10,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     dateNavigation: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -460,7 +546,48 @@ const styles = StyleSheet.create({
     listTitle: { fontSize: 19, fontWeight: 'bold', color: '#1E293B' },
     seeAllText: { color: '#3B82F6', fontSize: 14, fontWeight: '600' },
 
-
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    aiCard: {
+        width: '85%',
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 25,
+        alignItems: 'center',
+        elevation: 10,
+    },
+    aiHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    aiTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#4A00E0',
+        marginLeft: 10,
+    },
+    aiText: {
+        fontSize: 16,
+        color: '#374151',
+        lineHeight: 24,
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+    closeBtn: {
+        backgroundColor: '#4A00E0',
+        paddingHorizontal: 30,
+        paddingVertical: 12,
+        borderRadius: 25,
+    },
+    closeBtnText: {
+        color: 'white',
+        fontWeight: '600',
+    }
 });
 
 export default Dashboard;
