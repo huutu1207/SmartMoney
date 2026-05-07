@@ -28,7 +28,11 @@ const LoginScreen = ({ navigation }) => {
         try {
             // Kiểm tra dịch vụ Google Play (chỉ Android)
             await GoogleSignin.hasPlayServices();
-
+            try {
+                await GoogleSignin.signOut();
+            } catch (e) {
+                // Nếu là lần đầu hoặc chưa có session, lệnh này có thể lỗi nhẹ, Tú cứ ignore nó
+            }
             // Bắt đầu đăng nhập
             const response = await GoogleSignin.signIn();
 
@@ -277,7 +281,7 @@ const LoginScreen = ({ navigation }) => {
 
                         {/* Social Buttons */}
                         <View style={styles.socialRow}>
-                            {['google', 'facebook'].map((platform) => (
+                            {['google'].map((platform) => (
                                 <TouchableOpacity
                                     key={platform}
                                     style={[styles.socialBtn, { borderColor: theme.colors.outlineVariant, borderWidth: 1 }]}

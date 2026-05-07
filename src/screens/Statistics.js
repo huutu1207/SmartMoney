@@ -9,12 +9,13 @@ import {
     TouchableOpacity
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { PieChart } from 'react-native-chart-kit';
+import { PieChart, BarChart } from 'react-native-chart-kit';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from '../services/firebaseConfig';
 import { Timestamp } from 'firebase/firestore';
 import { ThemeContext } from '../context/ThemeContext';
 import { useTheme } from 'react-native-paper';
+import { onSnapshot } from 'firebase/firestore';
 const { width } = Dimensions.get('window');
 
 // ── Palette (Light) ───────────────────────────────────
@@ -154,12 +155,12 @@ const Skeleton = ({ w, h, radius = 8, mb = 0 }) => {
 // ── Main Screen ───────────────────────────────────────
 const StatisticsScreen = ({ navigation }) => {
     const theme = useTheme();
-
+    const [chartType, setChartType] = useState('pie'); // Mặc định là 'pie'
     const [loading, setLoading] = useState(true);
     const [chartData, setChartData] = useState([]);
     const [filter, setFilter] = useState('month');
     const user = auth.currentUser;
-
+    const dynamicWidth = Math.max(width - 48, chartData.length * 65);
     const colors = {
         bg: theme.colors.background,
         surface: theme.colors.surface,
@@ -171,61 +172,65 @@ const StatisticsScreen = ({ navigation }) => {
         chartColors: ['#3B6FF0', '#10B981', '#F472B6', '#F59E0B', '#8B5CF6', '#FB923C'],
     };
     useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            if (!user) {
-                console.log("Đang đợi user hoặc chưa đăng nhập...");
-                setLoading(false);
-                return;
-            }
+        const user = auth.currentUser;
+        if (!user) return;
 
-            // Chọn hàm tính range dựa trên state 'filter'
-            const range =
-                filter === 'month' ? getMonthRange() :
-                    filter === 'quarter' ? getQuarterRange() :
-                        getYearRange();
+        setLoading(true);
 
-            try {
-                const q = query(
-                    collection(db, 'transactions'),
-                    where('userId', '==', user.uid),
-                    where('type', '==', 'expense'),
-                    where('date', '>=', Timestamp.fromDate(range.start)),
-                    where('date', '<=', Timestamp.fromDate(range.end))
-                );
+        // 1. Xác định khoảng thời gian dựa trên filter
+        const range =
+            filter === 'month' ? getMonthRange() :
+                filter === 'quarter' ? getQuarterRange() :
+                    getYearRange();
 
-                const snap = await getDocs(q);
-                const totals = {};
+        // 2. Xây dựng query
+        const q = query(
+            collection(db, 'transactions'),
+            where('userId', '==', user.uid),
+            where('type', '==', 'expense'),
+            where('date', '>=', Timestamp.fromDate(range.start)),
+            where('date', '<=', Timestamp.fromDate(range.end))
+        );
 
-                snap.forEach((doc) => {
-                    const { category, amount } = doc.data();
-                    // Gom nhóm số tiền theo danh mục
-                    totals[category] = (totals[category] || 0) + amount;
-                });
+        // 3. Sử dụng onSnapshot để lắng nghe thay đổi thời gian thực
+        const unsubscribe = onSnapshot(q, (snap) => {
+            const totals = {};
 
-                const formatted = Object.keys(totals).map((key, i) => ({
-                    name: key,
-                    amount: totals[key],
-                    color: C.chartColors[i % C.chartColors.length],
-                    legendFontColor: C.sub,
-                    legendFontSize: 12,
-                }));
+            snap.forEach((doc) => {
+                const { category, amount } = doc.data();
+                totals[category] = (totals[category] || 0) + amount;
+            });
 
-                setChartData(formatted);
-            } catch (e) {
-                console.error("❌ Lỗi truy vấn Firestore:", e);
-            } finally {
-                setLoading(false);
-            }
-        };
+            const formatted = Object.keys(totals).map((key, i) => ({
+                name: key,
+                amount: totals[key],
+                color: C.chartColors[i % C.chartColors.length],
+                legendFontColor: C.sub,
+                legendFontSize: 12,
+            }));
 
-        fetchData();
+            setChartData(formatted);
+            setLoading(false);
+        }, (error) => {
+            console.error("❌ Lỗi lắng nghe Firestore:", error);
+            setLoading(false);
+        });
+
+        // 4. Cleanup: Ngắt kết nối khi thoát khỏi màn hình
+        return () => unsubscribe();
     }, [filter, user]);
 
     const total = chartData.reduce((s, d) => s + d.amount, 0);
     const sorted = [...chartData].sort((a, b) => b.amount - a.amount);
     const top = sorted[0] || null;
-
+    const barChartData = {
+        labels: chartData.map(item => item.name), // Lấy danh sách tên danh mục
+        datasets: [
+            {
+                data: chartData.map(item => item.amount / 1000) // Chia 1000 để hiển thị đơn vị "K" cho gọn
+            }
+        ]
+    };
     return (
         <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]}>
             {/* ── Filter Bar ── */}
@@ -296,38 +301,89 @@ const StatisticsScreen = ({ navigation }) => {
                                 </View>
                             </View>
                         </FadeIn>
-
-                        {/* ── Pie Chart Card ── */}
+                        {/* ── Chart Card ── */}
                         <FadeIn delay={160}>
                             <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                                 <View style={styles.cardHeader}>
-                                    <Text style={[styles.cardTitle, { color: colors.text }]}>Tỷ lệ danh mục</Text>
-                                    <View style={[styles.iconPill, { backgroundColor: theme.colors.tertiaryContainer }]}>
-                                        <Text style={{ fontSize: 13 }}>🥧</Text>
+                                    <Text style={[styles.cardTitle, { color: colors.text }]}>
+                                        {chartType === 'pie' ? 'Tỷ lệ danh mục' : 'Xu hướng chi tiêu (kđ)'}
+                                    </Text>
+
+                                    {/* Nút Switch chuyển đổi loại biểu đồ */}
+                                    <View style={styles.chartToggleContainer}>
+                                        <TouchableOpacity
+                                            onPress={() => setChartType('pie')}
+                                            style={[styles.toggleBtn, chartType === 'pie' && { backgroundColor: theme.colors.primaryContainer }]}
+                                        >
+                                            <Text style={{ fontSize: 14, opacity: chartType === 'pie' ? 1 : 0.4 }}>🥧</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={() => setChartType('bar')}
+                                            style={[styles.toggleBtn, chartType === 'bar' && { backgroundColor: theme.colors.primaryContainer }]}
+                                        >
+                                            <Text style={{ fontSize: 14, opacity: chartType === 'bar' ? 1 : 0.4 }}>📊</Text>
+                                        </TouchableOpacity>
                                     </View>
                                 </View>
-                                <PieChart
-                                    data={chartData}
-                                    width={width - 48}
-                                    height={210}
-                                    chartConfig={{
-                                        color: (opacity = 1) => colors.text, // Chữ trên chart theo theme
-                                    }}
-                                    accessor="amount"
-                                    backgroundColor="transparent"
-                                    paddingLeft="10"
-                                    hasLegend={false}
-                                    absolute
-                                />
-                                {/* Legend pill list */}
-                                <View style={styles.pillLegend}>
-                                    {chartData.map((d, i) => (
-                                        <View key={i} style={[styles.pillItem, { borderColor: d.color + '77', backgroundColor: d.color + '22' }]}>
-                                            <View style={[styles.pillDot, { backgroundColor: d.color }]} />
-                                            <Text style={[styles.pillLabel, { color: d.color }]} numberOfLines={1}>{d.name}</Text>
-                                        </View>
-                                    ))}
-                                </View>
+
+                                {chartType === 'pie' ? (
+                                    <PieChart
+                                        data={chartData}
+                                        width={width - 48}
+                                        height={210}
+                                        chartConfig={{ color: (opacity = 1) => colors.text }}
+                                        accessor="amount"
+                                        backgroundColor="transparent"
+                                        paddingLeft="10"
+                                        hasLegend={false}
+                                        absolute
+                                    />
+                                ) : (
+                                    <ScrollView horizontal={true} showsHorizontalScrollIndicator={false}>
+                                        <BarChart
+                                            data={{
+                                                labels: chartData.map(d => d.name),
+                                                datasets: [{ data: chartData.map(d => d.amount / 1000) }]
+                                            }}
+                                            width={dynamicWidth} // SỬA: Dùng chiều rộng động đã tính ở trên
+                                            height={250} // Có thể tăng thêm chiều cao để nhãn xoay không bị che
+                                            yAxisLabel=""
+                                            yAxisSuffix=""
+                                            fromZero={true}
+                                            chartConfig={{
+                                                backgroundGradientFrom: colors.surface,
+                                                backgroundGradientTo: colors.surface,
+                                                decimalPlaces: 0,
+                                                color: (opacity = 1) => theme.colors.primary,
+                                                labelColor: (opacity = 1) => colors.text,
+                                                barPercentage: 0.5, // Điều chỉnh độ rộng của cột
+                                                propsForLabels: {
+                                                    fontSize: 8, // Giảm cỡ chữ nhãn một chút cho thoáng
+                                                }
+                                            }}
+                                            style={{
+                                                borderRadius: 16,
+                                                marginTop: 10,
+                                                paddingBottom: 50,
+                                                paddingRight: 40 // Tránh cột cuối bị sát lề
+                                            }}
+                                            verticalLabelRotation={45} // Xoay 45 độ để tên danh mục không bị đè nhau
+                                        />
+                                    </ScrollView>
+
+                                )}
+
+                                {/* Legend pill list - Chỉ hiện khi ở biểu đồ tròn cho đẹp */}
+                                {chartType === 'pie' && (
+                                    <View style={styles.pillLegend}>
+                                        {chartData.map((d, i) => (
+                                            <View key={i} style={[styles.pillItem, { borderColor: d.color + '77', backgroundColor: d.color + '22' }]}>
+                                                <View style={[styles.pillDot, { backgroundColor: d.color }]} />
+                                                <Text style={[styles.pillLabel, { color: d.color }]} numberOfLines={1}>{d.name}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
                             </View>
                         </FadeIn>
 
@@ -395,7 +451,17 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#C7D7FC',
     },
-
+    chartToggleContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#E5E7EB',
+        borderRadius: 8,
+        padding: 2,
+    },
+    toggleBtn: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
     /* Summary */
     summaryRow: {
         flexDirection: 'row',

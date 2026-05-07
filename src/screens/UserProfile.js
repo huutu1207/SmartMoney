@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from 'react-native-paper';
 import { db, auth } from '../services/firebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+import { signOut, updateProfile } from 'firebase/auth';
 import ChangePasswordScreen from './ChangePassword';
 import * as ImagePicker from 'expo-image-picker';
 import LoadingOverlay from '../components/LoadingOverlay';
@@ -48,8 +48,7 @@ const UserProfileScreen = ({ navigation }) => {
                         const data = docSnap.data();
                         setPhoneNumber(data.phoneNumber || '');
                         setJob(data.job || '');
-                        setBirthDate(data.birthDate || '');
-                        // Ưu tiên dùng avatar từ Firestore nếu có
+                        if (data.fullName) setFullName(data.fullName); // Thêm dòng này để ưu tiên tên từ DB[cite: 4]
                         if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
                     }
                 }
@@ -91,7 +90,7 @@ const UserProfileScreen = ({ navigation }) => {
 
 
     const handleSave = async () => {
-        setIsSaving(true); // ✅ Dùng state mới để bật Overlay con heo
+        setIsSaving(true);
         try {
             const user = auth.currentUser;
             let finalAvatarUrl = avatarUrl;
@@ -100,12 +99,18 @@ const UserProfileScreen = ({ navigation }) => {
                 finalAvatarUrl = await uploadToImgBB(base64Avatar);
             }
 
+            // 1. Cập nhật vào Firebase Auth (Quan trọng để tên không bị nhảy về cũ)
+            await updateProfile(user, {
+                displayName: fullName,
+                photoURL: finalAvatarUrl
+            });
+
+            // 2. Cập nhật vào Firestore
             const userRef = doc(db, "users", user.uid);
             await setDoc(userRef, {
                 fullName,
                 phoneNumber,
                 job,
-                birthDate,
                 avatarUrl: finalAvatarUrl,
                 updatedAt: new Date()
             }, { merge: true });
@@ -117,7 +122,7 @@ const UserProfileScreen = ({ navigation }) => {
         } catch (error) {
             Alert.alert("Lỗi", "Không lưu được thông tin Tú ơi!");
         } finally {
-            setIsSaving(false); // ✅ Tắt Overlay
+            setIsSaving(false);
         }
     };
 
@@ -136,7 +141,7 @@ const UserProfileScreen = ({ navigation }) => {
             { text: "Hủy", style: "cancel" }
         ]);
     };
-    
+
     const openLibrary = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') return Alert.alert("Lỗi", "Cần quyền truy cập ảnh!");

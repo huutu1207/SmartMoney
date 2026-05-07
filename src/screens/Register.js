@@ -321,7 +321,7 @@ const RegisterScreen = ({ navigation }) => {
                         <View style={styles.socialRow}>
                             {[
                                 { name: 'google', color: '#DB4437', label: 'Google' },
-                                { name: 'facebook', color: '#1877F2', label: 'Facebook' },
+                                // { name: 'facebook', color: '#1877F2', label: 'Facebook' },
                             ].map((platform, index) => (
                                 <TouchableOpacity
                                     key={index}

@@ -7,13 +7,15 @@ import {
     TouchableOpacity,
     StatusBar,
     Dimensions,
-    Alert
+    Modal,
+    Alert,
+    ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db, auth } from '../services/firebaseConfig';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc } from 'firebase/firestore';
 import { deleteTransaction } from '../services/transactionService';
 //import component
 import SummaryCard from '../components/Dashboard/SummaryCard';
@@ -21,6 +23,7 @@ import TransactionItem from '../components/Dashboard/TransactionItem';
 import { CATEGORY_CONFIG } from '../constants/categories';
 import * as ImagePicker from 'expo-image-picker'
 import { useTheme } from 'react-native-paper';
+import { getFinancialAdvice } from '../services/gemini';
 const { width } = Dimensions.get('window');
 
 
@@ -57,7 +60,18 @@ const getPeriodRange = (period, anchorDate) => {
     }
 };
 
-
+// Thêm hàm này vào trên cùng, sau các dòng import
+const getCategoryData = (categoryName, firestoreData = {}) => {
+    if (CATEGORY_CONFIG[categoryName]) {
+        return CATEGORY_CONFIG[categoryName];
+    }
+    return {
+        icon: firestoreData.icon || CATEGORY_CONFIG['default'].icon,
+        color: firestoreData.color || CATEGORY_CONFIG['default'].color,
+        label: categoryName,
+        type: firestoreData.type || 'expense'
+    };
+};
 const Dashboard = ({ navigation }) => {
     const theme = useTheme();
     const [selectedPeriod, setSelectedPeriod] = useState('month');
@@ -66,6 +80,7 @@ const Dashboard = ({ navigation }) => {
     const [income, setIncome] = useState(0);
     const [expense, setExpense] = useState(0);
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [greeting, setGreeting] = useState("");
     const formatCurrency = (amount) => {
         const safeAmount = Number(amount) || 0
         return new Intl.NumberFormat('vi-VN', {
@@ -73,6 +88,59 @@ const Dashboard = ({ navigation }) => {
             currency: 'VND',
             signDisplay: 'auto'
         }).format(safeAmount);
+    };
+    const [aiResponse, setAiResponse] = useState("");
+    const [isAiLoading, setIsAiLoading] = useState(false);
+    const [showAiModal, setShowAiModal] = useState(false);
+    const getDynamicGreeting = () => {
+        const hour = new Date().getHours();
+        const name = auth.currentUser?.displayName?.split(' ').pop() || "Tú"; // Lấy tên gọi cuối cùng
+
+        if (hour >= 5 && hour < 11) return `Chào buổi sáng, ${name}! ☀️`;
+        if (hour >= 11 && hour < 14) return `Chúc ${name} bữa trưa ngon miệng! 🍱`;
+        if (hour >= 14 && hour < 18) return `Chào buổi chiều, ${name}! ☕`;
+        return `Chào buổi tối, ${name}! 🌙`;
+    };
+
+    const handleAskAI = async () => {
+        try {
+            setAiResponse("");
+            setShowAiModal(true);
+            setIsAiLoading(true);
+
+            const expenses = transactions?.filter(t => t.type === 'expense') || [];
+            let topCat = { name: "chưa rõ", amount: 0 };
+
+            if (expenses.length > 0) {
+                const totals = {};
+                expenses.forEach(t => {
+                    totals[t.category] = (totals[t.category] || 0) + t.amount;
+                });
+                const sortedKeys = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
+                topCat = { name: sortedKeys[0], amount: totals[sortedKeys[0]] };
+            }
+
+            const result = await getFinancialAdvice({
+                name: auth.currentUser?.displayName?.split(' ').pop() || "Túuu",
+                income: income || 0,
+                expense: expense || 0,
+                balance: totalBalance || 0,
+                topCategory: topCat.name,
+                topAmount: topCat.amount,
+            });
+
+            if (result) {
+                setAiResponse(result);
+            } else {
+                setAiResponse("Bot đang bận tí, thử lại sau nhé!");
+            }
+
+        } catch (err) {
+            console.error("Lỗi Dashboard:", err);
+            setAiResponse("Có lỗi xảy ra rồi!");
+        } finally {
+            setIsAiLoading(false); 
+        }
     };
 
     const handleScanPress = () => {
@@ -92,11 +160,10 @@ const Dashboard = ({ navigation }) => {
 
         let result = await ImagePicker.launchCameraAsync({
             allowsEditing: true, // Cho phép cắt ảnh hóa đơn cho gọn
-            quality: 1, // Độ phân giải cao nhất để AI Tuần 8 dễ đọc
+            quality: 1,
         });
 
         if (!result.canceled) {
-            // Chuyển sang màn hình xem trước (mình sẽ làm ở bước sau)
             navigation.navigate('ScanPreview', { imageUri: result.assets[0].uri });
         }
     };
@@ -170,7 +237,22 @@ const Dashboard = ({ navigation }) => {
             where("date", "<=", end),
             orderBy("date", "desc")
         );
+        const userRef = doc(db, "users", user.uid); // [cite: 38]
+        const unsubProfile = onSnapshot(userRef, (docSnap) => {
+            const hour = new Date().getHours();
+            let nameDisplay = "Bạn"; // Xử lý nếu người dùng mới chưa có tên
 
+            if (docSnap.exists()) {
+                const userData = docSnap.data();
+                nameDisplay = userData.fullName ? userData.fullName.split(' ').pop() : "Bạn";
+            }
+
+            // Tạo lời chào động
+            let greetText = hour < 12 ? `Chào buổi sáng, ${nameDisplay}! ☀️`
+                : hour < 18 ? `Chào buổi chiều, ${nameDisplay}! ☕`
+                    : `Chào buổi tối, ${nameDisplay}! 🌙`;
+            setGreeting(greetText);
+        });
 
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             let tempIncome = 0;
@@ -195,12 +277,17 @@ const Dashboard = ({ navigation }) => {
                 };
             });
 
+
             setTransactions(transList);
             setIncome(tempIncome);
             setExpense(tempExpense);
             setTotalBalance(tempIncome - tempExpense);
         });
-        return () => unsubscribe();
+
+        return () => {
+            unsubscribe();
+            unsubProfile();
+        };
     }, [selectedPeriod, currentDate]);
 
     return (
@@ -226,29 +313,52 @@ const Dashboard = ({ navigation }) => {
                     </LinearGradient>
 
                     <View>
-                        {/* Tiêu đề chính - Tự động Trắng <-> Đen */}
                         <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>
-                            Money Manager
+                            SmartMoney
                         </Text>
-                        {/* Tiêu đề phụ - Màu xám nhẹ hoặc trắng mờ */}
                         <Text style={[styles.headerSub, { color: theme.colors.onSurfaceVariant }]}>
-                            Chào buổi sáng! 👋
+                            {greeting}
                         </Text>
                     </View>
                 </View>
 
-                <TouchableOpacity style={[
-                    styles.chartButton,
-                    { backgroundColor: theme.colors.surfaceVariant }
-                ]}>
-                    <MaterialCommunityIcons
-                        name="chart-pie"
-                        size={22}
-                        color={theme.colors.primary}
-                    />
+                <TouchableOpacity onPress={handleAskAI} style={styles.aiButton}>
+                    <LinearGradient
+                        colors={['#8E2DE2', '#4A00E0']} // Màu tím đặc trưng cho AI
+                        style={styles.aiIconCircle}
+                    >
+                        <MaterialCommunityIcons name="robot-happy" size={22} color="white" />
+                    </LinearGradient>
                 </TouchableOpacity>
             </View>
+            <Modal
+                visible={showAiModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowAiModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.aiCard}>
+                        <View style={styles.aiHeader}>
+                            <MaterialCommunityIcons name="robot" size={30} color="#4A00E0" />
+                            <Text style={styles.aiTitle}>Cố vấn SmartMoney AI</Text>
+                        </View>
 
+                        {isAiLoading ? (
+                            <ActivityIndicator size="large" color="#4A00E0" style={{ marginVertical: 20 }} />
+                        ) : (
+                            <Text style={styles.aiText}>{aiResponse}</Text>
+                        )}
+
+                        <TouchableOpacity
+                            style={styles.closeBtn}
+                            onPress={() => setShowAiModal(false)}
+                        >
+                            <Text style={styles.closeBtnText}>Đã hiểu, cảm ơn!</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={[styles.scrollBody, { backgroundColor: theme.colors.background }]}
@@ -316,32 +426,36 @@ const Dashboard = ({ navigation }) => {
                 </View>
 
                 {/* 4. Danh sách giao dịch gần đây */}
-                <View style={styles.listContainer}>
-                    <View style={styles.listHeader}>
-                        <Text style={[styles.listTitle, { color: theme.colors.onSurface }]}>Giao dịch gần đây</Text>
-                        <TouchableOpacity>
-                            <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>Xem tất cả →</Text>
-                        </TouchableOpacity>
-                    </View>
+                <View style={styles.transactionList}>
+                    {transactions.length === 0 ? (
+                        <Text style={{ textAlign: 'center', padding: 20, color: theme.colors.outline }}>
+                            Chưa có giao dịch nào
+                        </Text>
+                    ) : (
+                        transactions.map((item) => {
+                            // Bước 1: Tìm thông tin icon/màu sắc
+                            // Ưu tiên 1: Trong CATEGORY_CONFIG (hàng mặc định)
+                            // Ưu tiên 2: Lấy trực tiếp từ dữ liệu item lưu trong Firestore (hàng tự thêm)
+                            // Ưu tiên 3: Dùng hàng mặc định 'default' nếu không tìm thấy gì
+                            const categoryStyle = CATEGORY_CONFIG[item.category] || {
+                                icon: item.icon || CATEGORY_CONFIG['default'].icon,
+                                color: item.color || CATEGORY_CONFIG['default'].color,
+                                label: item.category,
+                                type: item.type || 'expense'
+                            };
 
-                    <View style={styles.transactionList}>
-                        {transactions.length === 0 ? (
-                            <Text style={{ textAlign: 'center', padding: 20, color: theme.colors.outline }}>
-                                Chưa có giao dịch nào
-                            </Text>
-                        ) : (
-                            transactions.map((item) => (
+                            return (
                                 <TransactionItem
                                     key={item.id}
                                     item={item}
+                                    categoryStyle={categoryStyle} // Truyền thêm prop style đã tính toán
                                     formatCurrency={formatCurrency}
                                     onPress={() => navigation.navigate('AddTransaction', { transaction: item })}
                                     onLongPress={() => confirmDelete(item.id)}
-                                // Lưu ý: Đảm bảo TransactionItem bên trong cũng sử dụng theme
                                 />
-                            ))
-                        )}
-                    </View>
+                            );
+                        })
+                    )}
                 </View>
 
                 <View style={{ height: 30 }} />
@@ -367,7 +481,20 @@ const styles = StyleSheet.create({
     chartButton: { width: 40, height: 40, backgroundColor: '#F3F4F6', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
 
     scrollBody: { padding: 20 },
-
+    aiButton: {
+        borderRadius: 25,
+        elevation: 5, // Tạo bóng đổ trên Android
+        shadowColor: '#4A00E0',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+    },
+    aiIconCircle: {
+        padding: 10,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     dateNavigation: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -375,6 +502,7 @@ const styles = StyleSheet.create({
         gap: 15,
         marginTop: -10, // Kéo sát lên SummaryCard cho đẹp
         marginBottom: 10,
+        ZIndex: 10,
     },
     navBtn: {
         width: 36,
@@ -418,7 +546,48 @@ const styles = StyleSheet.create({
     listTitle: { fontSize: 19, fontWeight: 'bold', color: '#1E293B' },
     seeAllText: { color: '#3B82F6', fontSize: 14, fontWeight: '600' },
 
-
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    aiCard: {
+        width: '85%',
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 25,
+        alignItems: 'center',
+        elevation: 10,
+    },
+    aiHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    aiTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#4A00E0',
+        marginLeft: 10,
+    },
+    aiText: {
+        fontSize: 16,
+        color: '#374151',
+        lineHeight: 24,
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+    closeBtn: {
+        backgroundColor: '#4A00E0',
+        paddingHorizontal: 30,
+        paddingVertical: 12,
+        borderRadius: 25,
+    },
+    closeBtnText: {
+        color: 'white',
+        fontWeight: '600',
+    }
 });
 
 export default Dashboard;

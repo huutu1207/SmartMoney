@@ -123,13 +123,33 @@ const AddTransactionScreen = ({ navigation, route }) => {
     const handleSave = async () => {
         if (!amount) return Alert.alert("Lỗi", "Vui lòng nhập số tiền");
 
-        const data = { amount: Number(amount), type, category, note, date: date };
+        
+        const currentCategoryData = allCategories.find(c => c.name === category) || categories['expense'][0];
+
+        const data = {
+            amount: Number(amount),
+            type,
+            category,
+            note,
+            date: date,
+            icon: currentCategoryData.icon,  // Sửa từ selectedCategory thành currentCategoryData
+            color: currentCategoryData.color
+        };
 
         let success;
         if (editData) {
             success = await updateTransaction(editData.id, data);
         } else {
-            success = await addTransaction(amount, type, category, note, date);
+            // TRUYỀN THÔNG TIN VÀO addTransaction
+            success = await addTransaction(
+                amount,
+                type,
+                category,
+                note,
+                date,
+                currentCategoryData.icon,
+                currentCategoryData.color
+            );
         }
 
         if (success) {
