@@ -13,7 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db, auth } from '../services/firebaseConfig';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc } from 'firebase/firestore';
 import { deleteTransaction } from '../services/transactionService';
 //import component
 import SummaryCard from '../components/Dashboard/SummaryCard';
@@ -77,6 +77,7 @@ const Dashboard = ({ navigation }) => {
     const [income, setIncome] = useState(0);
     const [expense, setExpense] = useState(0);
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [greeting, setGreeting] = useState("");
     const formatCurrency = (amount) => {
         const safeAmount = Number(amount) || 0
         return new Intl.NumberFormat('vi-VN', {
@@ -85,7 +86,15 @@ const Dashboard = ({ navigation }) => {
             signDisplay: 'auto'
         }).format(safeAmount);
     };
+    const getDynamicGreeting = () => {
+        const hour = new Date().getHours();
+        const name = auth.currentUser?.displayName?.split(' ').pop() || "Tú"; // Lấy tên gọi cuối cùng
 
+        if (hour >= 5 && hour < 11) return `Chào buổi sáng, ${name}! ☀️`;
+        if (hour >= 11 && hour < 14) return `Chúc ${name} bữa trưa ngon miệng! 🍱`;
+        if (hour >= 14 && hour < 18) return `Chào buổi chiều, ${name}! ☕`;
+        return `Chào buổi tối, ${name}! 🌙`;
+    };
     const handleScanPress = () => {
         Alert.alert(
             "Quét hóa đơn",
@@ -103,11 +112,10 @@ const Dashboard = ({ navigation }) => {
 
         let result = await ImagePicker.launchCameraAsync({
             allowsEditing: true, // Cho phép cắt ảnh hóa đơn cho gọn
-            quality: 1, // Độ phân giải cao nhất để AI Tuần 8 dễ đọc
+            quality: 1,
         });
 
         if (!result.canceled) {
-            // Chuyển sang màn hình xem trước (mình sẽ làm ở bước sau)
             navigation.navigate('ScanPreview', { imageUri: result.assets[0].uri });
         }
     };
@@ -181,7 +189,22 @@ const Dashboard = ({ navigation }) => {
             where("date", "<=", end),
             orderBy("date", "desc")
         );
+        const userRef = doc(db, "users", user.uid); // [cite: 38]
+        const unsubProfile = onSnapshot(userRef, (docSnap) => {
+            const hour = new Date().getHours();
+            let nameDisplay = "Bạn"; // Xử lý nếu người dùng mới chưa có tên
 
+            if (docSnap.exists()) {
+                const userData = docSnap.data();
+                nameDisplay = userData.fullName ? userData.fullName.split(' ').pop() : "Bạn";
+            }
+
+            // Tạo lời chào động
+            let greetText = hour < 12 ? `Chào buổi sáng, ${nameDisplay}! ☀️`
+                : hour < 18 ? `Chào buổi chiều, ${nameDisplay}! ☕`
+                    : `Chào buổi tối, ${nameDisplay}! 🌙`;
+            setGreeting(greetText);
+        });
 
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             let tempIncome = 0;
@@ -206,12 +229,17 @@ const Dashboard = ({ navigation }) => {
                 };
             });
 
+
             setTransactions(transList);
             setIncome(tempIncome);
             setExpense(tempExpense);
             setTotalBalance(tempIncome - tempExpense);
         });
-        return () => unsubscribe();
+
+        return () => {
+            unsubscribe();
+            unsubProfile();
+        };
     }, [selectedPeriod, currentDate]);
 
     return (
@@ -237,13 +265,11 @@ const Dashboard = ({ navigation }) => {
                     </LinearGradient>
 
                     <View>
-                        {/* Tiêu đề chính - Tự động Trắng <-> Đen */}
                         <Text style={[styles.headerTitle, { color: theme.colors.onSurface }]}>
-                            Money Manager
+                            SmartMoney
                         </Text>
-                        {/* Tiêu đề phụ - Màu xám nhẹ hoặc trắng mờ */}
                         <Text style={[styles.headerSub, { color: theme.colors.onSurfaceVariant }]}>
-                            Chào buổi sáng! 👋
+                            {greeting} {/* Nó sẽ tự động nhảy từ "Chào buổi sáng, Bạn!" sang "Chào buổi sáng, Tú!" khi có tên */}
                         </Text>
                     </View>
                 </View>
@@ -390,6 +416,7 @@ const styles = StyleSheet.create({
         gap: 15,
         marginTop: -10, // Kéo sát lên SummaryCard cho đẹp
         marginBottom: 10,
+        ZIndex: 10,
     },
     navBtn: {
         width: 36,
